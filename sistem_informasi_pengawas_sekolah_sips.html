@@ -1,1555 +1,1473 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SIPS - Sistem Informasi Pengawas Sekolah (SD & SMP)</title>
-  
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- React & Babel CDNs -->
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  
-  <!-- Font Awesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
-  <!-- Google Fonts (Inter) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  BookOpen, Sparkles, FileText, Download, Upload, Printer, Check, Info,
+  ChevronRight, Trash2, HelpCircle, Briefcase, Globe, Cpu, Users, RefreshCw, 
+  Search, Eye, Edit3, Settings, BookOpenText, CheckSquare, Square, MessageSquare, 
+  Sparkle, AlertCircle, FileSpreadsheet, PlayCircle, ClipboardCheck, ArrowRight
+} from 'lucide-react';
 
-  <style>
-    body {
-      font-family: 'Inter', sans-serif;
-    }
-    /* Sembunyikan elemen tertentu saat mencetak laporan */
-    @media print {
-      .no-print {
-        display: none !important;
-      }
-      .print-area {
-        width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-      }
-      table {
-        page-break-inside: auto;
-      }
-      tr {
-        page-break-inside: avoid;
-        page-break-after: auto;
-      }
-    }
-    /* Efek scroll yang mulus */
-    .custom-scrollbar::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-track {
-      background: #f1f5f9;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
-      border-radius: 4px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-      background: #94a3b8;
-    }
-  </style>
-</head>
-<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col">
+const apiKey = ""; // Canvas will automatically inject the key at runtime
+const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
 
-  <!-- Area Root Tempat Aplikasi React Dimuat -->
-  <div id="root" class="flex-1 flex flex-col"></div>
+export default function App() {
+  // --- Form & Input State ---
+  const [formData, setFormData] = useState({
+    namaGuru: 'Budi Santoso, S.Pd.',
+    instansiSekolah: 'SD Negeri Nusantara 1',
+    mapel: 'Ilmu Pengetahuan Alam dan Sosial (IPAS)',
+    jenjang: 'SD',
+    fase: 'C',
+    materiPokok: 'Ekosistem dan Keseimbangan Lingkungan',
+    cp: 'Peserta didik menganalisis hubungan antar makhluk hidup pada suatu ekosistem dan mengaitkannya dengan peran manusia dalam menjaga keseimbangan ekosistem.',
+    tp: '1. Peserta didik dapat menganalisis jaring-jaring makanan dalam ekosistem.\n2. Peserta didik dapat membuat infografis/peta pikiran tentang peran manusia dalam melestarikan ekosistem lokal.',
+    modelPedagogis: 'Project-Based Learning (PjBL)',
+    pertemuan: '2 Pertemuan (4 JP)',
+    partnerKerjasama: 'Komunitas Peduli Lingkungan Hijau / Orang Tua Siswa',
+    lingkunganBelajar: 'Ruang kelas, Taman sekolah (Fisik), & Google Classroom (Virtual)',
+    pemanfaatanDigital: 'Aplikasi Canva untuk membuat infografis, Google Form untuk asesmen mandiri, Youtube video pembelajaran',
+    materiReferensi: ''
+  });
 
-  <script type="text/babel">
-    const { useState, useEffect } = React;
+  // Dimensi Profil Lulusan (DPL)
+  const [selectedDPL, setSelectedDPL] = useState({
+    DPL1: true, // Penalaran Kritis
+    DPL2: true, // Kreativitas
+    DPL3: false, // Keimanan & Ketakwaan
+    DPL4: false, // Kewargaan
+    DPL5: false, // Kemandirian
+    DPL6: true, // Komunikasi
+    DPL7: true, // Kolaborasi
+    DPL8: false  // Kesehatan
+  });
 
-    // --- DATA DEFAULT (MOCK DATA) SEBAGAI TEMPLATE AWAL ---
-    const defaultSdSchools = [
-      { 
-        id: "sd-1", 
-        nama: "SD Negeri 1 Palembang", 
-        status: "NEGERI", 
-        alamat: "Jl. Merdeka No. 10, Palembang", 
-        akreditasi: "A", 
-        npsn: "10234567", 
-        kepsek: "Hj. Sumarni, S.Pd.", 
-        hpKepsek: "08127345678", 
-        email: "sdn1plg@sch.id", 
-        murid: { L1: 25, P1: 22, L2: 24, P2: 26, L3: 21, P3: 25, L4: 28, P4: 20, L5: 22, P5: 23, L6: 29, P6: 21 }, 
-        rombel: [1, 1, 1, 1, 1, 1], 
-        guru: { pns: 8, nonAsn: 3, yayasan: 0, tendik: 2, kepsek: 1 } 
-      },
-      { 
-        id: "sd-2", 
-        nama: "SD Swasta IT Al-Azhar", 
-        status: "SWASTA", 
-        alamat: "Jl. Jenderal Sudirman No. 102, Palembang", 
-        akreditasi: "A", 
-        npsn: "10987654", 
-        kepsek: "H. Ahmad Fauzi, S.Th.I", 
-        hpKepsek: "08119876543", 
-        email: "info@alazhar-plg.sch.id", 
-        murid: { L1: 45, P1: 48, L2: 42, P2: 44, L3: 40, P3: 45, L4: 48, P4: 40, L5: 42, P5: 43, L6: 49, P6: 41 }, 
-        rombel: [2, 2, 2, 2, 2, 2], 
-        guru: { pns: 0, nonAsn: 2, yayasan: 15, tendik: 4, kepsek: 1 } 
-      }
-    ];
+  const dplMeta = {
+    DPL1: { label: 'DPL 1: Penalaran Kritis', desc: 'Menganalisis informasi, mengevaluasi, dan merefleksi pemikiran' },
+    DPL2: { label: 'DPL 2: Kreativitas', desc: 'Menghasilkan gagasan orisinal dan karya yang inovatif' },
+    DPL3: { label: 'DPL 3: Keimanan & Ketakwaan', desc: 'Berakhlak mulia kepada Tuhan, sesama manusia, dan alam' },
+    DPL4: { label: 'DPL 4: Kewargaan', desc: 'Berperan aktif dalam kehidupan sosial dan cinta tanah air' },
+    DPL5: { label: 'DPL 5: Kemandirian', desc: 'Punya regulasi diri dan bertanggung jawab atas proses belajarnya' },
+    DPL6: { label: 'DPL 6: Komunikasi', desc: 'Menyampaikan gagasan secara efektif dan empatik' },
+    DPL7: { label: 'DPL 7: Kolaborasi', desc: 'Bekerja sama secara sinergis untuk mencapai tujuan bersama' },
+    DPL8: { label: 'DPL 8: Kesehatan', desc: 'Menjaga kesehatan fisik, mental, dan kesejahteraan emosional' }
+  };
 
-    const defaultSmpSchools = [
-      { 
-        id: "smp-1", 
-        nama: "SMP Negeri 1 Palembang", 
-        status: "NEGERI", 
-        alamat: "Jl. Mayor Ruslan No. 5, Palembang", 
-        akreditasi: "A", 
-        npsn: "30104561", 
-        kepsek: "Drs. H. M. Yusuf, M.Si.", 
-        hpKepsek: "08136271923", 
-        email: "smpn1plg@sch.id", 
-        murid: { L7: 95, P7: 102, L8: 98, P8: 96, L9: 105, P9: 99 }, 
-        rombel: [3, 3, 3], 
-        guru: { pns: 18, nonAsn: 5, yayasan: 0, tendik: 3, kepsek: 1 } 
-      }
-    ];
+  const [activeTab, setActiveTab] = useState('input'); // input, preview-editor, panduan
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [useGoogleSearch, setUseGoogleSearch] = useState(true);
+  const [uploadedFileName, setUploadedFileName] = useState('');
+  const [attachedFile, setAttachedFile] = useState(null); // { name, mimeType, base64, previewUrl }
+  const [generatedDoc, setGeneratedDoc] = useState('');
+  const [apiError, setApiError] = useState('');
+  const [generationProgress, setGenerationProgress] = useState('');
 
-    const defaultVisits = [
-      { id: "v-1", namaSekolah: "SD Negeri 1 Palembang", jenjang: "SD", status: "NEGERI", checklist: [true, true, false, false, true, false, false, false, true, false, true, false] },
-      { id: "v-2", namaSekolah: "SD Swasta IT Al-Azhar", jenjang: "SD", status: "SWASTA", checklist: [true, false, true, false, true, false, true, false, true, false, true, false] },
-      { id: "v-3", namaSekolah: "SMP Negeri 1 Palembang", jenjang: "SMP", status: "NEGERI", checklist: [true, true, true, true, false, true, false, false, true, true, false, true] }
-    ];
+  // AI Assistant States
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isAiWorking, setIsAiWorking] = useState(false);
+  const [aiStatus, setAiStatus] = useState('');
+  const [alignmentAnalysis, setAlignmentAnalysis] = useState(null);
+  const [isAnalyzingAlignment, setIsAnalyzingAlignment] = useState(false);
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationMsg, setNotificationMsg] = useState({ title: '', body: '', type: 'info' });
 
-    const defaultPkks = [
-      { id: "p-1", sekolah: "SD Negeri 1 Palembang", indikator: "Aktif", observasi: "A", keterangan: "Sangat baik dalam manajemen pengelolaan administrasi sekolah." },
-      { id: "p-2", sekolah: "SMP Negeri 1 Palembang", indikator: "Aktif", observasi: "A", keterangan: "Implementasi Kurikulum Merdeka terlaksana secara menyeluruh." }
-    ];
+  // Editor State
+  const editorRef = useRef(null);
 
-    const defaultReflections = [
-      { id: "r-1", namaSekolah: "SD Negeri 1 Palembang", pertemuan: 1, tanggal: "2026-01-15", deskripsi: "Refleksi awal peningkatan literasi dasar pada murid kelas rendah.", status: "Aktif" },
-      { id: "r-2", namaSekolah: "SMP Negeri 1 Palembang", pertemuan: 2, tanggal: "2026-03-22", deskripsi: "Evaluasi kesiapan sarana Asesmen Nasional Berbasis Komputer (ANBK).", status: "Aktif" }
-    ];
+  // --- Notification Helper ---
+  const triggerNotification = (title, body, type = 'info') => {
+    setNotificationMsg({ title, body, type });
+    setShowNotification(true);
+    setTimeout(() => {
+      setShowNotification(false);
+    }, 6000);
+  };
 
-    function App() {
-      // Pilihan Menu Utama
-      const [currentTab, setCurrentTab] = useState("dashboard");
-      // Pilihan Sub-Tab Data SD & Data SMP (sekolah, murid, rombel, guru)
-      const [sdTab, setSdTab] = useState("sekolah");
-      const [smpTab, setSmpTab] = useState("sekolah");
-
-      // Load data awal dari Local Storage atau gunakan template bawaan
-      const [sdSchools, setSdSchools] = useState(() => {
-        const stored = localStorage.getItem("sips_sd_schools");
-        return stored ? JSON.parse(stored) : defaultSdSchools;
+  // Load example templates
+  const loadTemplate = (type) => {
+    if (type === 'sd-ipas') {
+      setFormData({
+        namaGuru: 'Ahmad Faisal, S.Pd.',
+        instansiSekolah: 'SD Pintar Bangsa',
+        mapel: 'IPAS (Sains)',
+        jenjang: 'SD',
+        fase: 'C',
+        materiPokok: 'Siklus Air dan Dampaknya pada Bumi',
+        cp: 'Peserta didik mendemonstrasikan bagaimana siklus air terjadi dan menganalisis dampaknya bagi kelangsungan hidup makhluk hidup serta cara menghemat air.',
+        tp: '1. Mengidentifikasi tahapan siklus air (evaporasi, kondensasi, presipitasi).\n2. Menganalisis dampak kerusakan hutan terhadap siklus air lokal.\n3. Merancang aksi nyata penghematan air di lingkungan sekolah.',
+        modelPedagogis: 'Inquiry-Based Learning',
+        pertemuan: '2 Pertemuan (4 JP)',
+        partnerKerjasama: 'Petugas PDAM Setempat / Praktisi Lingkungan',
+        lingkunganBelajar: 'Laboratorium Mini Sekolah, Area Sumur Resapan, Padlet Board',
+        pemanfaatanDigital: 'Simulasi Siklus Air PHET Colorado, Google Slides untuk presentasi, Quizizz untuk kuis',
+        materiReferensi: 'Siklus air (siklus hidrologi) adalah perputaran air secara terus-menerus dari bumi ke atmosfer, lalu kembali ke bumi. Tahapannya meliputi penguapan (evaporasi/transpirasi), pengembunan (kondensasi), hujan (presipitasi), dan penyerapan (infiltrasi).'
       });
-
-      const [smpSchools, setSmpSchools] = useState(() => {
-        const stored = localStorage.getItem("sips_smp_schools");
-        return stored ? JSON.parse(stored) : defaultSmpSchools;
+      triggerNotification('Template SD Dimuat', 'Data materi Siklus Air siap dianalisis.', 'success');
+    } else if (type === 'smp-matematika') {
+      setFormData({
+        namaGuru: 'Siti Rahma, M.Pd.',
+        instansiSekolah: 'SMP Negeri 3 Jaya',
+        mapel: 'Matematika',
+        jenjang: 'SMP',
+        fase: 'D',
+        materiPokok: 'Statistika Praktis & Literasi Finansial',
+        cp: 'Peserta didik dapat merumuskan pertanyaan, mengumpulkan, menyajikan, dan menganalisis data untuk menjawab pertanyaan, serta menggunakannya dalam membuat keputusan finansial sederhana.',
+        tp: '1. Mengumpulkan data pengeluaran harian siswa menggunakan survei mini.\n2. Menyajikan data dalam bentuk diagram batang dan lingkaran secara akurat.\n3. Menyimpulkan tren konsumsi serta membuat rencana anggaran mingguan yang bijak.',
+        modelPedagogis: 'Problem-Based Learning (PBL)',
+        pertemuan: '3 Pertemuan (6 JP)',
+        partnerKerjasama: 'Koperasi Sekolah / Guru Ekonomi',
+        lingkunganBelajar: 'Ruang kelas, Pojok Literasi Finansial, Google Sheets',
+        pemanfaatanDigital: 'Google Forms untuk survei, Google Sheets/Excel untuk pengolahan diagram, Canva untuk poster literasi keuangan',
+        materiReferensi: 'Statistika mencakup pengumpulan data (survei/observasi), penyajian data (tabel, grafik batang/garis/lingkaran), analisis pemusatan data (mean, median, modus) serta penarikan kesimpulan logis untuk perencanaan finansial mandiri.'
       });
-
-      const [visits, setVisits] = useState(() => {
-        const stored = localStorage.getItem("sips_visits");
-        return stored ? JSON.parse(stored) : defaultVisits;
+      triggerNotification('Template SMP Dimuat', 'Data materi Statistika siap dianalisis.', 'success');
+    } else if (type === 'sma-indonesia') {
+      setFormData({
+        namaGuru: 'Drs. Iwan Wijaya',
+        instansiSekolah: 'SMA Unggul Nusantara',
+        mapel: 'Bahasa Indonesia',
+        jenjang: 'SMA',
+        fase: 'E',
+        materiPokok: 'Menulis Teks Negosiasi Kontekstual',
+        cp: 'Peserta didik mampu mengevaluasi informasi, menyampaikan gagasan, dan menulis teks negosiasi secara logis, kreatif, dan kritis menggunakan bahasa Indonesia yang santun.',
+        tp: '1. Menganalisis struktur dan kebahasaan teks negosiasi bisnis maupun sosial.\n2. Melakukan simulasi negosiasi memecahkan konflik fasilitas fasilitas sekolah.\n3. Menyusun draf teks kesepakatan negosiasi tertulis yang saling menguntungkan (win-win).',
+        modelPedagogis: 'Role Playing & Kontekstual',
+        pertemuan: '2 Pertemuan (4 JP)',
+        partnerKerjasama: 'Pengurus OSIS / Komite Sekolah',
+        lingkunganBelajar: 'Ruang Rapat Sekolah (simulasi), Google Doc Kolaboratif',
+        pemanfaatanDigital: 'Google Docs untuk kolaborasi naskah, perekaman video simulasi via smartphone, analisis video di YouTube',
+        materiReferensi: 'Negosiasi adalah bentuk interaksi sosial untuk mencapai kesepakatan di antara pihak-pihak yang mempunyai kepentingan berbeda. Unsur penting: pengajuan, penawaran, dan persetujuan dengan prinsip kesantunan berbahasa serta kesepakatan yang saling menguntungkan.'
       });
+      triggerNotification('Template SMA Dimuat', 'Data materi Teks Negosiasi siap dianalisis.', 'success');
+    }
+  };
 
-      const [pkks, setPkks] = useState(() => {
-        const stored = localStorage.getItem("sips_pkks");
-        return stored ? JSON.parse(stored) : defaultPkks;
-      });
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
 
-      const [reflections, setReflections] = useState(() => {
-        const stored = localStorage.getItem("sips_reflections");
-        return stored ? JSON.parse(stored) : defaultReflections;
-      });
+  const toggleDPL = (key) => {
+    setSelectedDPL(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
-      // Sinkronisasi data ke Local Storage setiap kali terjadi perubahan
-      useEffect(() => {
-        localStorage.setItem("sips_sd_schools", JSON.stringify(sdSchools));
-      }, [sdSchools]);
+  const getMimeTypeFromExtension = (fileName) => {
+    const ext = fileName.split('.').pop().toLowerCase();
+    switch (ext) {
+      case 'pdf': return 'application/pdf';
+      case 'jpg':
+      case 'jpeg': return 'image/jpeg';
+      case 'png': return 'image/png';
+      case 'doc': return 'application/msword';
+      case 'docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      case 'txt': return 'text/plain';
+      case 'md': return 'text/markdown';
+      case 'json': return 'application/json';
+      default: return 'application/octet-stream';
+    }
+  };
 
-      useEffect(() => {
-        localStorage.setItem("sips_smp_schools", JSON.stringify(smpSchools));
-      }, [smpSchools]);
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-      useEffect(() => {
-        localStorage.setItem("sips_visits", JSON.stringify(visits));
-      }, [visits]);
+    setUploadedFileName(file.name);
+    const reader = new FileReader();
+    
+    // Determine if it is a plain text file to display in the raw text area
+    const isText = file.type.startsWith('text/') || 
+                   file.name.endsWith('.txt') || 
+                   file.name.endsWith('.md') || 
+                   file.name.endsWith('.json');
+    
+    reader.onload = (event) => {
+      const dataUrl = event.target.result;
+      
+      if (isText) {
+        const textReader = new FileReader();
+        textReader.onload = (textEvent) => {
+          setFormData(prev => ({
+            ...prev,
+            materiReferensi: textEvent.target.result
+          }));
+        };
+        textReader.readAsText(file);
+      }
 
-      useEffect(() => {
-        localStorage.setItem("sips_pkks", JSON.stringify(pkks));
-      }, [pkks]);
-
-      useEffect(() => {
-        localStorage.setItem("sips_reflections", JSON.stringify(reflections));
-      }, [reflections]);
-
-      // State Pencarian global / Filter Sekolah
-      const [searchQuery, setSearchQuery] = useState("");
-      const [selectedSchoolFilter, setSelectedSchoolFilter] = useState("");
-
-      // State Pengaturan Modal Form
-      const [isModalOpen, setIsModalOpen] = useState(false);
-      const [modalType, setModalType] = useState(""); // "sd_sekolah", "smp_sekolah", "pkks", "refleksi"
-      const [editData, setEditData] = useState(null);
-      const [formData, setFormData] = useState({});
-
-      // State Notifikasi Kostum (untuk menggantikan alert)
-      const [notification, setNotification] = useState(null);
-
-      const showNotification = (message, type = "success") => {
-        setNotification({ message, type });
-        setTimeout(() => setNotification(null), 3000);
-      };
-
-      // Reset pencarian dan filter
-      const handleResetSearch = () => {
-        setSearchQuery("");
-        setSelectedSchoolFilter("");
-      };
-
-      // Membuka modal form dalam kondisi Tambah maupun Edit
-      const handleOpenModal = (type, data = null) => {
-        setModalType(type);
-        setEditData(data);
-        if (data) {
-          setFormData({ ...data });
-        } else {
-          // Inisialisasi formulir baru kosong
-          if (type === "sd_sekolah" || type === "smp_sekolah") {
-            setFormData({
-              nama: "",
-              status: "NEGERI",
-              alamat: "",
-              akreditasi: "A",
-              npsn: "",
-              kepsek: "",
-              hpKepsek: "",
-              email: "",
-              murid: type === "sd_sekolah" 
-                ? { L1: 0, P1: 0, L2: 0, P2: 0, L3: 0, P3: 0, L4: 0, P4: 0, L5: 0, P5: 0, L6: 0, P6: 0 }
-                : { L7: 0, P7: 0, L8: 0, P8: 0, L9: 0, P9: 0 },
-              rombel: type === "sd_sekolah" ? [0, 0, 0, 0, 0, 0] : [0, 0, 0],
-              guru: { pns: 0, nonAsn: 0, yayasan: 0, tendik: 0, kepsek: 1 }
-            });
-          } else if (type === "pkks") {
-            setFormData({ sekolah: "", indikator: "Aktif", observasi: "A", keterangan: "" });
-          } else if (type === "refleksi") {
-            setFormData({ namaSekolah: "", pertemuan: 1, tanggal: new Date().toISOString().split('T')[0], deskripsi: "", status: "Aktif" });
-          }
-        }
-        setIsModalOpen(true);
-      };
-
-      // Menyimpan data hasil inputan form (Tambah / Edit)
-      const handleSaveData = (e) => {
-        e.preventDefault();
+      // Always save the base64 representation for multimodal LLM context insertion
+      const splitIndex = dataUrl.indexOf(',');
+      if (splitIndex !== -1) {
+        const mimeType = file.type || getMimeTypeFromExtension(file.name);
+        const base64Data = dataUrl.substring(splitIndex + 1);
         
-        if (modalType === "sd_sekolah") {
-          if (editData) {
-            setSdSchools(sdSchools.map(s => s.id === editData.id ? formData : s));
-            showNotification("Data SD Berhasil Diperbarui!");
-          } else {
-            const newId = "sd-" + Date.now();
-            const newSchool = { ...formData, id: newId };
-            setSdSchools([...sdSchools, newSchool]);
-            // Otomatis masukkan ke daftar kunjungan
-            setVisits([...visits, { id: "v-" + Date.now(), namaSekolah: formData.nama, jenjang: "SD", status: formData.status, checklist: Array(12).fill(false) }]);
-            showNotification("Data SD Baru Berhasil Ditambahkan!");
-          }
-        } else if (modalType === "smp_sekolah") {
-          if (editData) {
-            setSmpSchools(smpSchools.map(s => s.id === editData.id ? formData : s));
-            showNotification("Data SMP Berhasil Diperbarui!");
-          } else {
-            const newId = "smp-" + Date.now();
-            const newSchool = { ...formData, id: newId };
-            setSmpSchools([...smpSchools, newSchool]);
-            // Otomatis masukkan ke daftar kunjungan
-            setVisits([...visits, { id: "v-" + Date.now(), namaSekolah: formData.nama, jenjang: "SMP", status: formData.status, checklist: Array(12).fill(false) }]);
-            showNotification("Data SMP Baru Berhasil Ditambahkan!");
-          }
-        } else if (modalType === "pkks") {
-          if (editData) {
-            setPkks(pkks.map(p => p.id === editData.id ? formData : p));
-            showNotification("Data PKKS Berhasil Diperbarui!");
-          } else {
-            const newPkks = { ...formData, id: "p-" + Date.now() };
-            setPkks([...pkks, newPkks]);
-            showNotification("Data PKKS Baru Berhasil Ditambahkan!");
-          }
-        } else if (modalType === "refleksi") {
-          if (editData) {
-            setReflections(reflections.map(r => r.id === editData.id ? formData : r));
-            showNotification("Data Refleksi Berhasil Diperbarui!");
-          } else {
-            const newRefl = { ...formData, id: "r-" + Date.now() };
-            setReflections([...reflections, newRefl]);
-            showNotification("Data Refleksi Baru Berhasil Ditambahkan!");
-          }
+        setAttachedFile({
+          name: file.name,
+          mimeType: mimeType,
+          base64: base64Data,
+          previewUrl: mimeType.startsWith('image/') ? dataUrl : null,
+          sizeKb: (file.size / 1024).toFixed(1)
+        });
+        
+        triggerNotification(
+          'Berkas Diunggah', 
+          `"${file.name}" (${(file.size / 1024).toFixed(1)} KB) siap diproses sebagai data pendukung multimodal.`, 
+          'success'
+        );
+      }
+    };
+    
+    reader.readAsDataURL(file);
+  };
+
+  const removeUploadedFile = () => {
+    setUploadedFileName('');
+    setAttachedFile(null);
+    setFormData(prev => ({ ...prev, materiReferensi: '' }));
+    triggerNotification('Referensi Dihapus', 'Referensi berkas pendukung dikosongkan.', 'info');
+  };
+
+  // --- API Call Helper with Exponential Backoff ---
+  const fetchWithRetry = async (url, options, retries = 5, delay = 1000) => {
+    try {
+      const response = await fetch(url, options);
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`HTTP Error ${response.status}: ${errText}`);
+      }
+      return await response.json();
+    } catch (error) {
+      if (retries > 0) {
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return fetchWithRetry(url, options, retries - 1, delay * 2);
+      }
+      throw error;
+    }
+  };
+
+  // --- Prompt Generation & AI Request ---
+  const generateModulAjar = async () => {
+    setIsGenerating(true);
+    setApiError('');
+    setGenerationProgress('Menganalisis kesiapan & materi pembelajaran...');
+
+    const dplTerpilih = Object.keys(selectedDPL)
+      .filter(key => selectedDPL[key])
+      .map(key => dplMeta[key].label)
+      .join(', ');
+
+    const systemPrompt = `Anda adalah pakar kurikulum pendidikan di Indonesia yang ahli dalam menyusun Modul Ajar / RPPM berlandaskan prinsip "Pembelajaran Mendalam" (Deep Learning) sesuai dokumen acuan "Inspirasi Perangkat Pembelajaran Mendalam.pdf".
+Tugas Anda adalah memformulasikan sebuah Modul Ajar/RPPM yang komprehensif, kaya konten, sistematis, dan bermutu tinggi berdasarkan informasi yang diberikan pengguna.
+
+Format keluaran harus menggunakan struktur HTML yang sangat rapi, bersih, profesional, serta menggunakan CSS bawaan sederhana atau inline style agar mudah dibaca dan diedit langsung oleh pengguna dalam editor teks kaya (contenteditable). Gunakan tabel, poin-poin tebal (bullet points), dan sub-bagian yang jelas. Jangan gunakan markdown mentah seperti '###' dalam konten hasil, buat murni HTML berstruktur rapi (tag <h1>, <h2>, <h3>, <p>, <ul>, <li>, <table>, <tr>, <td>, <strong>).
+
+Pilar-pilar Struktur yang WAJIB ada di dalam dokumen:
+1. KOP SURAT FORMAL & INFORMASI UMUM (Tabel Rapi berisi Nama Guru, Instansi, Mapel, Jenjang/Fase, Alokasi Pertemuan, Tema/Materi Pokok).
+2. IDENTIFIKASI PEMBELAJARAN MENDALAM:
+   - Kesiapan Peserta Didik (Analisis mendalam meliputi pengetahuan awal, minat, latar belakang, dan kebutuhan belajar bervariasi).
+   - Analisis Karakteristik Materi Pelajaran (Jenis pengetahuan, relevansi kehidupan nyata, tingkat kesulitan, struktur materi, integrasi nilai & karakter).
+   - Dimensi Profil Lulusan yang disasar (Sebutkan dimensi yang dipilih beserta deskripsi kontekstualnya).
+3. DESAIN PEMBELAJARAN:
+   - Capaian Pembelajaran (CP).
+   - Tujuan Pembelajaran (TP) yang dijabarkan detail per pertemuan.
+   - Topik Pembelajaran yang Kontekstual & Relevan.
+   - Integrasi Lintas Disiplin Ilmu yang Relevan.
+   - Kerangka Pembelajaran Mendalam:
+     * Praktik Pedagogis (Strategi/Model pembelajaran terpilih beserta deskripsi penerapannya).
+     * Kemitraan Pembelajaran (Peran aktif pihak luar/rekan sejawat/orang tua).
+     * Lingkungan Pembelajaran (Integrasi ruang fisik, virtual/LMS, dan budaya belajar aktif).
+     * Pemanfaatan Digital (Penggunaan teknologi digital interaktif/daring).
+4. PENGALAMAN BELAJAR (Langkah Kegiatan Terperinci berbasis prinsip BBM: Berkesadaran, Bermakna, dan Menggembirakan):
+   - Kegiatan Awal (Berkesadaran: Orientasi penuh makna, Apersepsi kontekstual, Motivasi menyenangkan).
+   - Kegiatan Inti, wajib memuat tahapan khas Pembelajaran Mendalam:
+     * Memahami (Langkah eksplorasi konsep dengan berkesadaran, bermakna, menggembirakan).
+     * Mengaplikasi (Aktivitas kontekstual penerapan konsep, eksperimen, proyek, atau simulasi).
+     * Merefleksi (Langkah evaluasi diri siswa, umpan balik kognitif & emosional).
+   - Kegiatan Penutup (Umpan balik konstruktif, kesimpulan bermakna, rancangan pembelajaran berikutnya).
+5. ASESMEN KOMPREHENSIF (Dilengkapi instrumen/pertanyaan dan rubrik penilaian):
+   - Asesmen di Awal Pembelajaran (Diagnostic: kuesioner singkat, tes lisan pemetaan awal).
+   - Asesmen Selama Proses (Formative: lembar observasi partisipasi aktif, peer/self assessment).
+   - Asesmen di Akhir Pembelajaran (Summative: penugasan autentik, rubrik penilaian produk/kinerja yang mendetail).
+6. LEMBAR TANDA TANGAN (Tempat tanda tangan Guru Mata Pelajaran dan Kepala Sekolah).
+
+Bahasa yang digunakan harus sangat profesional, inspiratif, mendalam, operasional (guru bisa langsung mempraktikkannya), dan kontekstual.`;
+
+    const userQuery = `Buatkan Modul Ajar Pembelajaran Mendalam lengkap dengan rincian berikut:
+- Nama Guru: ${formData.namaGuru}
+- Instansi Sekolah: ${formData.instansiSekolah}
+- Mata Pelajaran: ${formData.mapel}
+- Jenjang / Fase: ${formData.jenjang} / Fase ${formData.fase}
+- Tema / Materi Pokok: ${formData.materiPokok}
+- Capaian Pembelajaran (CP): ${formData.cp}
+- Tujuan Pembelajaran (TP): ${formData.tp}
+- Jumlah Pertemuan / Durasi: ${formData.pertemuan}
+- Model Pedagogis / Strategi: ${formData.modelPedagogis}
+- Dimensi Profil Lulusan (DPL) Terpilih: ${dplTerpilih}
+- Rencana Kemitraan: ${formData.partnerKerjasama}
+- Lingkungan Belajar: ${formData.lingkunganBelajar}
+- Pemanfaatan Digital: ${formData.pemanfaatanDigital}
+${formData.materiReferensi ? `- Materi Referensi/Tambahan Tambahan dari Pengguna:\n${formData.materiReferensi}` : ''}
+
+Tolong hasilkan dokumen yang sangat detail, panjang, terstruktur, siap cetak, dan berpusat pada siswa (student-centered). Tulis langsung dalam format HTML murni dimulai dari tag <div class="modul-ajar-container" style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; color: #333; line-height: 1.6;"> dan diakhiri dengan </div>. Jangan berikan teks pembuka atau penutup markdown di luar kode HTML ini, langsung hasilkan kode HTML yang siap dirender.`;
+
+    const parts = [{ text: userQuery }];
+    
+    // Inject Multimodal Reference File directly into Gemini payload if present!
+    if (attachedFile) {
+      parts.push({
+        inlineData: {
+          mimeType: attachedFile.mimeType,
+          data: attachedFile.base64
         }
-        setIsModalOpen(false);
-      };
+      });
+    }
 
-      // Menghapus baris data
-      const handleDeleteData = (type, id) => {
-        // Konfirmasi kustom sederhana dengan pembungkus UI aman
-        const isConfirmed = window.confirm("Apakah Anda yakin ingin menghapus data ini?");
-        if (isConfirmed) {
-          if (type === "sd") {
-            setSdSchools(sdSchools.filter(s => s.id !== id));
-            showNotification("Data SD Berhasil Dihapus!", "error");
-          } else if (type === "smp") {
-            setSmpSchools(smpSchools.filter(s => s.id !== id));
-            showNotification("Data SMP Berhasil Dihapus!", "error");
-          } else if (type === "pkks") {
-            setPkks(pkks.filter(p => p.id !== id));
-            showNotification("Data PKKS Berhasil Dihapus!", "error");
-          } else if (type === "refleksi") {
-            setReflections(reflections.filter(r => r.id !== id));
-            showNotification("Data Refleksi Berhasil Dihapus!", "error");
-          } else if (type === "visit") {
-            setVisits(visits.filter(v => v.id !== id));
-            showNotification("Data Kunjungan Berhasil Dihapus!", "error");
-          }
+    const payload = {
+      contents: [{ parts: parts }],
+      systemInstruction: { parts: [{ text: systemPrompt }] }
+    };
+
+    if (useGoogleSearch) {
+      payload.tools = [{ google_search: {} }];
+      setGenerationProgress('Melakukan pencarian referensi kurikulum terbaru dari Google Search...');
+    } else {
+      setGenerationProgress('Menyusun draf pengalaman belajar & asesmen...');
+    }
+
+    try {
+      const result = await fetchWithRetry(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      setGenerationProgress('Memproses & menata dokumen...');
+      let rawText = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      
+      // Clean up potential markdown wrapper from response
+      if (rawText.includes('```html')) {
+        rawText = rawText.split('```html')[1].split('```')[0];
+      } else if (rawText.startsWith('```')) {
+        rawText = rawText.replace(/^```\w*\s*/, '').replace(/\s*```$/, '');
+      }
+
+      setGeneratedDoc(rawText);
+      setActiveTab('preview-editor');
+      triggerNotification('Generasi Sukses', 'RPPM Modul Ajar Pembelajaran Mendalam berhasil diterbitkan.', 'success');
+    } catch (error) {
+      console.error(error);
+      setApiError('Gagal memproses pembuatan RPPM. Silakan periksa koneksi internet Anda atau coba lagi.');
+    } finally {
+      setIsGenerating(false);
+      setGenerationProgress('');
+    }
+  };
+
+  // --- AI CP-TP Alignment Checker ---
+  const analyzeCPTPAlignment = async () => {
+    setIsAnalyzingAlignment(true);
+    setAlignmentAnalysis(null);
+    triggerNotification('Memulai Analisis', 'Mengevaluasi keselarasan CP & TP Anda melalui Gemini AI...', 'info');
+
+    const promptText = `Anda adalah konsultan penjaminan mutu kurikulum Merdeka yang ahli di bidang Pembelajaran Mendalam.
+Evaluasilah keselarasan antara Capaian Pembelajaran (CP) dan Tujuan Pembelajaran (TP) berikut ini secara tajam:
+
+Mata Pelajaran: ${formData.mapel}
+Fase: ${formData.fase}
+Materi Pokok: ${formData.materiPokok}
+Capaian Pembelajaran (CP): "${formData.cp}"
+Tujuan Pembelajaran (TP): 
+"${formData.tp}"
+
+Lakukan analisis berdasarkan aspek:
+1. **Penyelarasan Kognitif & Psikomotorik**: Apakah kata kerja operasional (KKO) di TP sudah sebanding dan mendukung CP?
+2. **Kesesuaian Deep Learning**: Apakah TP sudah mencakup aspek Pembelajaran Mendalam (Memahami secara kontekstual, Mengaplikasi aksi nyata, dan Merefleksi kesadaran)?
+3. **Rekomendasi Konstruktif**: Berikan draf perbaikan penulisan TP jika dirasa ada yang kurang optimal atau belum berorientasi pada peserta didik.
+
+Berikan jawaban terstruktur dalam format JSON yang valid agar dapat dirender dengan indah di antarmuka web, dengan struktur kunci:
+{
+  "status": "Sangat Selaras" | "Cukup Selaras" | "Perlu Perbaikan",
+  "skor": 0 sampai 100,
+  "analisisKognitif": "penjelasan singkat",
+  "kesesuaianDeepLearning": "penjelasan singkat",
+  "rekomendasi": ["rekomendasi 1", "rekomendasi 2"]
+}`;
+
+    const payload = {
+      contents: [{ parts: [{ text: promptText }] }],
+      generationConfig: {
+        responseMimeType: "application/json"
+      }
+    };
+
+    try {
+      const response = await fetchWithRetry(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const rawJson = response.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+      const parsedData = JSON.parse(rawJson);
+      setAlignmentAnalysis(parsedData);
+      triggerNotification('Analisis Selesai', 'Ulasan keselarasan CP-TP siap dibaca.', 'success');
+    } catch (error) {
+      console.error(error);
+      triggerNotification('Gagal Analisis', 'Koneksi API terganggu atau format respons tidak sesuai.', 'error');
+    } finally {
+      setIsAnalyzingAlignment(false);
+    }
+  };
+
+  // --- AI Interactive Assistant Commands ---
+  const handleAIAssistantCommand = async (commandType, customText = '') => {
+    setIsAiWorking(true);
+    setAiStatus('Menyiapkan permintaan...');
+    
+    const activeDocContent = editorRef.current ? editorRef.current.innerHTML : generatedDoc;
+    let queryText = '';
+    let statusMsg = '';
+
+    if (commandType === 'lkpd') {
+      statusMsg = 'Merancang Lembar Kerja Peserta Didik (LKPD) berbasis BBM...';
+      queryText = `Berdasarkan dokumen Modul Ajar/RPPM Pembelajaran Mendalam berikut:
+---
+${activeDocContent}
+---
+
+Buatkan "Lembar Kerja Peserta Didik (LKPD)" yang interaktif, menyenangkan, dan menantang bagi siswa untuk mempraktikkan materi di atas.
+Gunakan prinsip BBM (Berkesadaran, Bermakna, Menggembirakan).
+LKPD harus memuat:
+1. Judul Lembar Aktivitas yang Kreatif
+2. Petunjuk Kerja Kelompok/Individu yang Jelas
+3. Aktivitas Utama (Berorientasi Aksi Nyata/Pemecahan Masalah)
+4. Pertanyaan Reflektif "Aku dan Pembelajaran"
+
+Kembalikan hasil dalam bentuk kode HTML bersih yang dirancang dengan indah (tanpa tag html, head, atau body luar, cukup div, h2, table, ul, li, p dengan hiasan inline style berwarna kontras).`;
+    } 
+    else if (commandType === 'rubrik') {
+      statusMsg = 'Menyusun Rubrik Penilaian Komprehensif...';
+      queryText = `Berdasarkan dokumen Modul Ajar/RPPM Pembelajaran Mendalam berikut:
+---
+${activeDocContent}
+---
+
+Buatkan rubrik penilaian kinerja, produk, dan sikap yang sangat lengkap dan detail berbasis rubrik Pembelajaran Mendalam (skala 1-4).
+Rubrik harus mencakup:
+1. Kriteria Penilaian (misalnya: Pemahaman Konseptual, Kemampuan Kolaborasi, Keorisinilan Solusi)
+2. Deskriptor Kualitatif yang Jelas untuk masing-masing Skor (4 = Sangat Baik, 3 = Baik, 2 = Cukup, 1 = Perlu Pendampingan)
+3. Cara Penghitungan Skor Akhir Nilai Siswa
+
+Kembalikan hasil dalam bentuk tabel HTML yang tertata rapi dengan inline style professional agar bisa digabung langsung ke dokumen utama.`;
+    }
+    else if (commandType === 'ice_breaking') {
+      statusMsg = 'Mengembangkan ide Ice Breaking inovatif...';
+      queryText = `Berdasarkan materi pokok "${formData.materiPokok}" dan model pembelajaran "${formData.modelPedagogis}", berikan 3 ide aktivitas Ice Breaking atau game edukasi singkat (5-10 menit) yang memenuhi aspek:
+1. Berkesadaran (Mindful) - Memfokuskan konsentrasi siswa sebelum masuk kelas.
+2. Bermakna (Meaningful) - Terikat dengan esensi materi pelajaran.
+3. Menggembirakan (Joyful) - Memicu keceriaan dan interaksi aktif.
+
+Kembalikan dalam bentuk struktur div HTML yang menarik dengan judul dan instruksi langkah demi langkah yang praktis dilakukan oleh guru di kelas.`;
+    }
+    else if (commandType === 'refine') {
+      statusMsg = 'Menyempurnakan dokumen sesuai instruksi Anda...';
+      queryText = `Berikut adalah dokumen Modul Ajar/RPPM Pembelajaran Mendalam yang sedang aktif:
+---
+${activeDocContent}
+---
+
+Harap lakukan modifikasi/penyesuaian pada dokumen di atas berdasarkan instruksi khusus dari pengguna berikut ini:
+"${customText}"
+
+Lakukan penyesuaian secara menyeluruh dan kembalikan seluruh isi dokumen hasil perbaikan UTUH dari awal <div class="modul-ajar-container" ...> sampai akhir </div> dalam bentuk kode HTML murni yang siap disalin dan dicetak. Pastikan struktur tabel, kop surat, dan format visual lainnya tetap terjaga indah.`;
+    }
+
+    setAiStatus(statusMsg);
+
+    try {
+      const payload = {
+        contents: [{ parts: [{ text: queryText }] }],
+        systemInstruction: {
+          parts: [{ text: "Anda adalah asisten AI edukasi berspesialisasi dalam Kurikulum Merdeka dan pedagogi Pembelajaran Mendalam. Kembalikan HANYA kode HTML murni, bersih, tanpa menyertakan blok kode markdown (seperti ```html atau ```)." }]
         }
       };
 
-      // Update checklist kunjungan bulanan
-      const handleToggleChecklist = (visitId, monthIndex) => {
-        setVisits(visits.map(v => {
-          if (v.id === visitId) {
-            const updated = [...v.checklist];
-            updated[monthIndex] = !updated[monthIndex];
-            return { ...v, checklist: updated };
-          }
-          return v;
-        }));
-      };
+      const result = await fetchWithRetry(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
 
-      const totalSdCount = sdSchools.length;
-      const totalSmpCount = smpSchools.length;
-      const totalVisitsCount = visits.length;
-      const totalPkksCount = pkks.length;
-      const totalReflectionsCount = reflections.length;
+      let rawResponse = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      
+      // Sanitasi Markdown codeblock jika AI membungkusnya secara tidak sengaja
+      if (rawResponse.includes('```html')) {
+        rawResponse = rawResponse.split('```html')[1].split('```')[0];
+      } else if (rawResponse.startsWith('```')) {
+        rawResponse = rawResponse.replace(/^```\w*\s*/, '').replace(/\s*```$/, '');
+      }
 
-      const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
-
-      // Semua daftar nama sekolah digabung untuk mempermudah filter dropdown
-      const allSchoolNames = [
-        ...sdSchools.map(s => ({ nama: s.nama, tipe: "SD" })),
-        ...smpSchools.map(s => ({ nama: s.nama, tipe: "SMP" }))
-      ];
-
-      return (
-        <div className="flex flex-col md:flex-row min-h-screen">
-          
-          {/* BANNER NOTIFIKASI */}
-          {notification && (
-            <div className={`fixed top-4 right-4 z-50 flex items-center space-x-3 px-5 py-3 rounded-lg shadow-xl text-white font-semibold transition-all duration-300 transform translate-y-0 ${notification.type === "error" ? "bg-red-600" : "bg-emerald-600"}`}>
-              <i className={`fa-solid ${notification.type === "error" ? "fa-circle-exclamation" : "fa-circle-check"}`}></i>
-              <span>{notification.message}</span>
+      if (commandType === 'refine') {
+        setGeneratedDoc(rawResponse);
+        triggerNotification('Penyempurnaan Sukses', 'Dokumen berhasil diubah sesuai instruksi Anda.', 'success');
+      } else {
+        // Appending the generated content to the end of document
+        const currentHTML = editorRef.current ? editorRef.current.innerHTML : generatedDoc;
+        const divider = `
+          <div style="margin-top: 40px; border-top: 4px dashed #6366f1; padding-top: 30px; page-break-before: always;">
+            <div style="background-color: #f5f3ff; border-left: 4px solid #8b5cf6; padding: 10px 15px; margin-bottom: 20px;">
+              <strong style="color: #6d28d9; font-size: 14px;">➕ TAMBAHAN AI: Dihasilkan oleh Asisten Pembelajaran Mendalam</strong>
             </div>
-          )}
+            ${rawResponse}
+          </div>
+        `;
+        setGeneratedDoc(currentHTML + divider);
+        triggerNotification('Konten Ditambahkan', 'Hasil kreasi AI berhasil disisipkan di bagian bawah dokumen Anda.', 'success');
+      }
+      setAiPrompt('');
+    } catch (error) {
+      console.error(error);
+      triggerNotification('Gagal Memproses', 'Terjadi kesalahan saat memanggil Gemini API.', 'error');
+    } finally {
+      setIsAiWorking(false);
+      setAiStatus('');
+    }
+  };
 
-          {}
-          {/* SIDEBAR SIPS - Sesuai dengan mockup di tangkapan layar */}
-          <aside className="w-full md:w-64 bg-emerald-800 text-white flex flex-col no-print shrink-0 border-r border-emerald-900 shadow-md">
-            <div className="p-6 border-b border-emerald-700/60 flex flex-col items-center">
-              {/* Desain Avatar Guru/Admin */}
-              <div className="w-20 h-20 bg-amber-400 rounded-full flex items-center justify-center text-3xl font-bold text-emerald-900 border-4 border-slate-100 shadow-md mb-3 overflow-hidden">
-                <i className="fa-solid fa-user-tie"></i>
-              </div>
-              <h2 className="font-bold text-lg text-center leading-tight">Admin SIPS</h2>
-              <span className="text-xs text-emerald-200 mt-1">adminsips@gmail.com</span>
-              <div className="bg-emerald-950/80 text-amber-300 text-xs px-3 py-1 rounded-full font-semibold mt-3 flex items-center space-x-1 border border-emerald-700">
-                <i className="fa-solid fa-shield-halved text-[10px]"></i>
-                <span>SD & SMP Wilayah</span>
-              </div>
+  // --- Downloads / Print Action ---
+  const downloadAsDoc = () => {
+    const editorContent = editorRef.current ? editorRef.current.innerHTML : generatedDoc;
+    if (!editorContent) return;
+
+    const htmlContent = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+        <title>RPPM Pembelajaran Mendalam - ${formData.materiPokok}</title>
+        <style>
+          body { font-family: 'Arial', sans-serif; line-height: 1.5; }
+          table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f2f2f2; }
+          .title { text-align: center; font-weight: bold; font-size: 18px; margin-bottom: 20px; }
+        </style>
+      </head>
+      <body>
+        ${editorContent}
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob(['\ufeff' + htmlContent], {
+      type: 'application/msword'
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `RPPM_Mendalam_${formData.materiPokok.replace(/\s+/g, '_')}.doc`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    triggerNotification('Selesai diunduh', 'Berkas Word (.doc) berhasil diekspor.', 'success');
+  };
+
+  const printDocument = () => {
+    const editorContent = editorRef.current ? editorRef.current.innerHTML : generatedDoc;
+    if (!editorContent) return;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Cetak Modul Ajar / RPPM - MendalamEdu</title>
+          <style>
+            body { 
+              font-family: 'Arial', sans-serif; 
+              color: #333; 
+              line-height: 1.6; 
+              padding: 40px; 
+            }
+            .modul-ajar-container { 
+              max-width: 100%; 
+            }
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              margin-bottom: 20px; 
+            }
+            table, th, td { 
+              border: 1px solid #444; 
+            }
+            th, td { 
+              padding: 10px; 
+              text-align: left; 
+            }
+            th { 
+              background-color: #f5f5f5 !important; 
+              -webkit-print-color-adjust: exact; 
+            }
+            h1, h2, h3 { 
+              color: #111; 
+              border-bottom: 1px solid #ccc; 
+              padding-bottom: 5px; 
+            }
+            @media print {
+              body { padding: 0; margin: 0; }
+              @page { size: A4; margin: 2cm; }
+            }
+          </style>
+        </head>
+        <body>
+          ${editorContent}
+          <script>
+            window.onload = function() {
+              window.print();
+              window.onafterprint = function() { window.close(); };
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  // Prepopulate an initial generated document on load so it isn't empty and demonstrates immediate utility
+  useEffect(() => {
+    setGeneratedDoc(`
+      <div class="modul-ajar-container" style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; color: #333; line-height: 1.6;">
+        <div style="text-align: center; border-bottom: 3px double #333; padding-bottom: 10px; margin-bottom: 20px;">
+          <h1 style="font-size: 20px; margin: 0; text-transform: uppercase; font-weight: bold;">RENCANA PELAKSANAAN PEMBELAJARAN MENDALAM (RPPM)</h1>
+          <h2 style="font-size: 16px; margin: 5px 0 0 0; font-weight: normal;">KURIKULUM MERDEKA - BERKESADARAN, BERMAKNA, & MENGGEMBIRAKAN</h2>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px;">
+          <tr>
+            <td style="width: 25%; font-weight: bold; border: 1px solid #ddd; padding: 8px;">Nama Guru</td>
+            <td style="width: 25%; border: 1px solid #ddd; padding: 8px;">${formData.namaGuru}</td>
+            <td style="width: 25%; font-weight: bold; border: 1px solid #ddd; padding: 8px;">Mata Pelajaran</td>
+            <td style="width: 25%; border: 1px solid #ddd; padding: 8px;">${formData.mapel}</td>
+          </tr>
+          <tr>
+            <td style="font-weight: bold; border: 1px solid #ddd; padding: 8px;">Instansi Sekolah</td>
+            <td style="border: 1px solid #ddd; padding: 8px;">${formData.instansiSekolah}</td>
+            <td style="font-weight: bold; border: 1px solid #ddd; padding: 8px;">Jenjang / Fase</td>
+            <td style="border: 1px solid #ddd; padding: 8px;">${formData.jenjang} / ${formData.fase}</td>
+          </tr>
+          <tr>
+            <td style="font-weight: bold; border: 1px solid #ddd; padding: 8px;">Materi Pokok</td>
+            <td style="border: 1px solid #ddd; padding: 8px;">${formData.materiPokok}</td>
+            <td style="font-weight: bold; border: 1px solid #ddd; padding: 8px;">Alokasi Waktu</td>
+            <td style="border: 1px solid #ddd; padding: 8px;">${formData.pertemuan}</td>
+          </tr>
+        </table>
+
+        <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; color: #1e3a8a; margin-top: 25px;">I. IDENTIFIKASI PEMBELAJARAN MENDALAM</h3>
+        
+        <p><strong>A. Kesiapan Peserta Didik:</strong></p>
+        <p>Berdasarkan asesmen diagnostik awal, kesiapan belajar murid berada pada tingkat bervariasi. Sebagian besar murid telah memahami konsep dasar rantai makanan sederhana namun memerlukan penguatan untuk menganalisis hubungan yang lebih kompleks dalam jaring-jaring makanan. Minat belajar murid didominasi oleh gaya belajar visual-kinestetik yang membutuhkan media interaktif dan eksplorasi nyata.</p>
+        
+        <p><strong>B. Karakteristik Materi Pelajaran:</strong></p>
+        <p>Materi Keseimbangan Ekosistem ini mengandung jenis pengetahuan konseptual dan prosedural. Sangat relevan dengan kehidupan sehari-hari anak di lingkungan pedesaan maupun perkotaan (misalnya dampak sampah, penggunaan pestisida). Tingkat kesulitan berada pada kategori sedang ke tinggi karena melibatkan analisis sebab-akibat sistemik dari hilangnya satu komponen dalam ekosistem terhadap kelangsungan ekosistem global.</p>
+
+        <p><strong>C. Dimensi Profil Lulusan (DPL) Prioritas:</strong></p>
+        <ul>
+          <li><strong>DPL 1: Penalaran Kritis</strong> - Melalui analisis jaring makanan dan pemecahan masalah ekologis.</li>
+          <li><strong>DPL 2: Kreativitas</strong> - Melalui penciptaan media kampanye peduli lingkungan.</li>
+          <li><strong>DPL 7: Kolaborasi</strong> - Bekerjasama dalam kelompok merancang solusi pelestarian ekosistem.</li>
+        </ul>
+
+        <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; color: #1e3a8a; margin-top: 25px;">II. DESAIN PEMBELAJARAN MENDALAM</h3>
+        <p><strong>Capaian Pembelajaran (CP):</strong> ${formData.cp}</p>
+        <p><strong>Tujuan Pembelajaran (TP):</strong></p>
+        <ul>
+          <li>Pertemuan 1: Murid dapat memodelkan dan menganalisis jaring-jaring makanan dari ekosistem lokal pilihan mereka secara akurat.</li>
+          <li>Pertemuan 2: Murid mampu memprediksi akibat ketidakseimbangan lingkungan dan merumuskan aksi solutif berbasis kearifan lokal.</li>
+        </ul>
+
+        <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; color: #1e3a8a; margin-top: 25px;">III. PENGALAMAN BELAJAR BERBASIS BBM</h3>
+        <table style="width:100%; border-collapse: collapse; margin-top:10px;">
+          <tr style="background-color: #f3f4f6;">
+            <th style="border: 1px solid #ddd; padding: 10px; width: 25%;">Tahapan</th>
+            <th style="border: 1px solid #ddd; padding: 10px;">Aktivitas Pembelajaran Mendalam</th>
+          </tr>
+          <tr>
+            <td style="border: 1px solid #ddd; padding: 10px; font-weight: bold;">Langkah Awal (Berkesadaran)</td>
+            <td style="border: 1px solid #ddd; padding: 10px;">Guru mengajak siswa melakukan hening sejenak (mindfulness) mengamati lingkungan luar kelas. Tanya jawab kontekstual: "Jika katak di sawah belakang sekolah hilang, apa yang akan terjadi pada padi paman petani?" (Apersepsi bermakna).</td>
+          </tr>
+          <tr>
+            <td style="border: 1px solid #ddd; padding: 10px; font-weight: bold;">Inti: Memahami (Bermakna)</td>
+            <td style="border: 1px solid #ddd; padding: 10px;">Siswa menonton video interaktif keseimbangan alam, mencatat peran produsen hingga dekomposer. Menggunakan kartu gambar makhluk hidup untuk menyusun rantai makanan sendiri secara berkelompok.</td>
+          </tr>
+          <tr>
+            <td style="border: 1px solid #ddd; padding: 10px; font-weight: bold;">Inti: Mengaplikasi (Menggembirakan)</td>
+            <td style="border: 1px solid #ddd; padding: 10px;">Siswa mensimulasikan "Jaring-Jaring Kehidupan" menggunakan tali benang wol. Setiap anak berperan sebagai organisme berbeda. Benang ditarik untuk merasakan bagaimana putusnya satu tali mempengaruhi organisme lainnya secara fisik dan dinamis.</td>
+          </tr>
+          <tr>
+            <td style="border: 1px solid #ddd; padding: 10px; font-weight: bold;">Inti: Merefleksi (Mendalam)</td>
+            <td style="border: 1px solid #ddd; padding: 10px;">Siswa menuliskan lembar refleksi "Aku dan Alamku", merefleksikan kontribusi pribadi dalam memelihara keseimbangan bumi (misal mengurangi sampah plastik).</td>
+          </tr>
+          <tr>
+            <td style="border: 1px solid #ddd; padding: 10px; font-weight: bold;">Penutup</td>
+            <td style="border: 1px solid #ddd; padding: 10px;">Apresiasi kelompok teraktif, merangkum poin penting pembelajaran, serta mengonfirmasi kegiatan lanjutan pembuatan poster digital.</td>
+          </tr>
+        </table>
+
+        <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; color: #1e3a8a; margin-top: 25px;">IV. ASESMEN PEMBELAJARAN</h3>
+        <ul>
+          <li><strong>Asesmen Awal:</strong> Pertanyaan pemantik visual tentang rantai makanan di papan tulis untuk mengukur pemahaman awal murid.</li>
+          <li><strong>Asesmen Proses:</strong> Penilaian lembar kerja kelompok, observasi sikap kolaborasi (rubrik keaktifan diskusi kelompok).</li>
+          <li><strong>Asesmen Akhir:</strong> Rubrik penilaian poster/infografis solusi ekosistem yang dinilai berdasarkan aspek orisinalitas, kegunaan logis solusi, dan estetika visual.</li>
+        </ul>
+
+        <div style="margin-top: 50px; display: flex; justify-content: space-between;">
+          <div style="text-align: center; width: 40%;">
+            <p>Mengetahui,</p>
+            <p>Kepala Sekolah ${formData.instansiSekolah}</p>
+            <br/><br/><br/>
+            <p>__________________________</p>
+            <p>NIP. ..................................</p>
+          </div>
+          <div style="text-align: center; width: 40%;">
+            <p>Palembang, 5 Juli 2026</p>
+            <p>Guru Kelas / Mata Pelajaran</p>
+            <br/><br/><br/>
+            <p><strong>${formData.namaGuru}</strong></p>
+            <p>NIP. ..................................</p>
+          </div>
+        </div>
+      </div>
+    `);
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative">
+      
+      {/* Floating Global Notification Card */}
+      {showNotification && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-sm w-full bg-white rounded-xl shadow-xl border border-slate-100 p-4 animate-bounce flex items-start gap-3">
+          <div className={`p-2 rounded-lg ${
+            notificationMsg.type === 'success' ? 'bg-emerald-100 text-emerald-800' :
+            notificationMsg.type === 'error' ? 'bg-red-100 text-red-800' : 'bg-indigo-100 text-indigo-800'
+          }`}>
+            <Sparkle className="h-5 w-5" />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-slate-900">{notificationMsg.title}</h4>
+            <p className="text-xs text-slate-600 mt-1">{notificationMsg.body}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Navbar Header */}
+      <header className="bg-gradient-to-r from-indigo-700 via-indigo-800 to-violet-900 text-white shadow-md py-4 px-6 sticky top-0 z-10 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="bg-white/10 p-2.5 rounded-xl border border-white/20">
+            <BookOpen className="h-6 w-6 text-indigo-200" />
+          </div>
+          <div>
+            <h1 className="text-xl font-extrabold tracking-tight flex items-center gap-1.5">
+              MendalamEdu <span className="text-xs bg-indigo-500/50 text-indigo-100 py-0.5 px-2 rounded-full font-medium">v1.5</span>
+            </h1>
+            <p className="text-xs text-indigo-200">Perencana & Pembuat RPPM Pembelajaran Mendalam Terintegrasi Gemini 3.1 Live API</p>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <button 
+            onClick={() => setActiveTab('input')}
+            className={`px-3 py-2 rounded-lg text-xs font-semibold transition ${activeTab === 'input' ? 'bg-white text-indigo-900 shadow-sm' : 'text-white hover:bg-white/10'}`}
+          >
+            Form Perencanaan
+          </button>
+          <button 
+            onClick={() => {
+              setActiveTab('preview-editor');
+              triggerNotification('Editor Dibuka', 'Anda dapat menyunting isi lembar kerja atau menggunakan modul asisten AI.', 'info');
+            }}
+            className={`px-3 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${activeTab === 'preview-editor' ? 'bg-white text-indigo-900 shadow-sm' : 'text-white hover:bg-white/10'}`}
+          >
+            <Edit3 className="h-3.5 w-3.5" /> Hasil & Edit
+          </button>
+          <button 
+            onClick={() => setActiveTab('panduan')}
+            className={`px-3 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${activeTab === 'panduan' ? 'bg-white text-indigo-900 shadow-sm' : 'text-white hover:bg-white/10'}`}
+          >
+            <Info className="h-3.5 w-3.5" /> Panduan BBM
+          </button>
+        </div>
+      </header>
+
+      {/* Main Content Area */}
+      <main className="flex-grow max-w-7xl w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* ================= COLUMN 1: LEFT SIDE (INPUT & GENERATION CONTROL) ================= */}
+        <div className={`lg:col-span-5 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col ${activeTab !== 'input' ? 'hidden lg:flex' : ''}`}>
+          <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <Settings className="h-5 w-5 text-indigo-600" /> Parameter Rencana
+              </h2>
+              <p className="text-xs text-slate-500">Sesuaikan data dasar rancangan modul</p>
             </div>
-
-            {/* Menu Navigasi Sidebar */}
-            <nav className="flex-1 px-4 py-6 space-y-1">
-              <button 
-                onClick={() => { setCurrentTab("dashboard"); handleResetSearch(); }} 
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all ${currentTab === "dashboard" ? "bg-emerald-900 text-white shadow-md font-bold border-l-4 border-amber-400" : "text-emerald-100 hover:bg-emerald-750 hover:text-white"}`}
-              >
-                <i className="fa-solid fa-chart-line w-5 text-center text-base"></i>
-                <span>Dashboard</span>
-              </button>
-
-              <button 
-                onClick={() => { setCurrentTab("kunjungan"); handleResetSearch(); }} 
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all ${currentTab === "kunjungan" ? "bg-emerald-900 text-white shadow-md font-bold border-l-4 border-amber-400" : "text-emerald-100 hover:bg-emerald-750 hover:text-white"}`}
-              >
-                <i className="fa-solid fa-calendar-check w-5 text-center text-base"></i>
-                <span>Kunjungan Sekolah</span>
-              </button>
-
-              <button 
-                onClick={() => { setCurrentTab("sd"); handleResetSearch(); }} 
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all ${currentTab === "sd" ? "bg-emerald-900 text-white shadow-md font-bold border-l-4 border-amber-400" : "text-emerald-100 hover:bg-emerald-750 hover:text-white"}`}
-              >
-                <i className="fa-solid fa-school w-5 text-center text-base"></i>
-                <span>Data SD</span>
-              </button>
-
-              <button 
-                onClick={() => { setCurrentTab("smp"); handleResetSearch(); }} 
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all ${currentTab === "smp" ? "bg-emerald-900 text-white shadow-md font-bold border-l-4 border-amber-400" : "text-emerald-100 hover:bg-emerald-750 hover:text-white"}`}
-              >
-                <i className="fa-solid fa-building-columns w-5 text-center text-base"></i>
-                <span>Data SMP</span>
-              </button>
-
-              <button 
-                onClick={() => { setCurrentTab("pkks"); handleResetSearch(); }} 
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all ${currentTab === "pkks" ? "bg-emerald-900 text-white shadow-md font-bold border-l-4 border-amber-400" : "text-emerald-100 hover:bg-emerald-750 hover:text-white"}`}
-              >
-                <i className="fa-solid fa-id-card-clip w-5 text-center text-base"></i>
-                <span>PKKS</span>
-              </button>
-
-              <button 
-                onClick={() => { setCurrentTab("refleksi"); handleResetSearch(); }} 
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all ${currentTab === "refleksi" ? "bg-emerald-900 text-white shadow-md font-bold border-l-4 border-amber-400" : "text-emerald-100 hover:bg-emerald-750 hover:text-white"}`}
-              >
-                <i className="fa-regular fa-comments w-5 text-center text-base"></i>
-                <span>Refleksi</span>
-              </button>
-            </nav>
-
-            <div className="p-6 border-t border-emerald-700/40 text-center text-xs text-emerald-200">
-              <p className="font-semibold">SIPS v2.0</p>
-              <p className="mt-1 opacity-80">Dinas Pendidikan</p>
-              <p className="mt-1 font-mono text-[10px] opacity-60">Hak Cipta © 2026</p>
-            </div>
-          </aside>
-
-          {}
-          {/* WORKSPACE AREA */}
-          <main className="flex-1 flex flex-col min-w-0">
             
-            {/* Header Workspace */}
-            <header className="bg-white border-b border-slate-200 shadow-sm py-4 px-6 md:px-8 flex flex-col sm:flex-row justify-between items-center no-print gap-4">
-              <div className="flex items-center space-x-3">
-                <i className="fa-solid fa-graduation-cap text-emerald-700 text-2xl"></i>
-                <h1 className="text-xl font-bold text-slate-800 tracking-tight">Sistem Informasi Pengawas Sekolah (SIPS)</h1>
-              </div>
-              <div className="flex items-center space-x-3">
-                <button 
-                  onClick={() => window.print()} 
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2 rounded-lg text-sm transition flex items-center space-x-2 shadow-sm"
-                >
-                  <i className="fa-solid fa-print"></i>
-                  <span>Cetak Laporan</span>
-                </button>
-              </div>
-            </header>
-
-            {/* Area Isi Konten Utama */}
-            <div className="flex-1 p-6 md:p-8 print-area">
-              
-              {/* ==================================== */}
-              {/* 1. KONTEN TAB: DASHBOARD */}
-              {/* ==================================== */}
-              {currentTab === "dashboard" && (
-                <div>
-                  <div className="mb-6">
-                    <h2 className="text-2xl font-bold text-slate-800">Selamat Datang Di DashBoard SIPS</h2>
-                    <p className="text-slate-500 text-sm mt-1">Halaman monitoring kesiswaan, profil, dan rekapitulasi penilaian kinerja SD & SMP.</p>
-                  </div>
-
-                  {/* Statistik Cards sesuai mockup warna di tangkapan layar laptop */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-                    <div className="bg-blue-600 text-white p-6 rounded-xl shadow relative overflow-hidden">
-                      <div className="text-xs uppercase font-bold tracking-wider opacity-80">Total SD</div>
-                      <div className="text-4xl font-extrabold mt-2">{totalSdCount}</div>
-                      <div className="text-[11px] mt-4 bg-white/20 inline-block px-2 py-0.5 rounded font-medium">Sekolah Dasar</div>
-                      <i className="fa-solid fa-school absolute right-3 bottom-3 text-white/10 text-6xl"></i>
-                    </div>
-
-                    <div className="bg-cyan-500 text-white p-6 rounded-xl shadow relative overflow-hidden">
-                      <div className="text-xs uppercase font-bold tracking-wider opacity-80">Total SMP</div>
-                      <div className="text-4xl font-extrabold mt-2">{totalSmpCount}</div>
-                      <div className="text-[11px] mt-4 bg-white/20 inline-block px-2 py-0.5 rounded font-medium">Sekolah Menengah</div>
-                      <i className="fa-solid fa-building-columns absolute right-3 bottom-3 text-white/10 text-6xl"></i>
-                    </div>
-
-                    <div className="bg-red-500 text-white p-6 rounded-xl shadow relative overflow-hidden">
-                      <div className="text-xs uppercase font-bold tracking-wider opacity-80">Pengaduan</div>
-                      <div className="text-4xl font-extrabold mt-2">0</div>
-                      <div className="text-[11px] mt-4 bg-white/20 inline-block px-2 py-0.5 rounded font-medium">Laporan Masuk</div>
-                      <i className="fa-solid fa-triangle-exclamation absolute right-3 bottom-3 text-white/10 text-6xl"></i>
-                    </div>
-
-                    <div className="bg-emerald-600 text-white p-6 rounded-xl shadow relative overflow-hidden">
-                      <div className="text-xs uppercase font-bold tracking-wider opacity-80">PKKS</div>
-                      <div className="text-4xl font-extrabold mt-2">{totalPkksCount}</div>
-                      <div className="text-[11px] mt-4 bg-white/20 inline-block px-2 py-0.5 rounded font-medium">Kinerja Kepsek</div>
-                      <i className="fa-solid fa-id-card-clip absolute right-3 bottom-3 text-white/10 text-6xl"></i>
-                    </div>
-
-                    <div className="bg-amber-500 text-white p-6 rounded-xl shadow relative overflow-hidden">
-                      <div className="text-xs uppercase font-bold tracking-wider opacity-80">Refleksi</div>
-                      <div className="text-4xl font-extrabold mt-2">{totalReflectionsCount}</div>
-                      <div className="text-[11px] mt-4 bg-white/20 inline-block px-2 py-0.5 rounded font-medium">Program Rutin</div>
-                      <i className="fa-regular fa-comments absolute right-3 bottom-3 text-white/10 text-6xl"></i>
-                    </div>
-                  </div>
-
-                  {/* Petunjuk Penggunaan & Informasi */}
-                  <div className="bg-white rounded-xl shadow border border-slate-200 p-6">
-                    <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
-                      <i className="fa-solid fa-circle-info text-emerald-600 mr-2 text-xl"></i>
-                      Informasi Pengawasan & Ruang Lingkup SIPS (SD & SMP)
-                    </h3>
-                    <div className="text-slate-600 text-sm leading-relaxed space-y-4">
-                      <p>Sistem Informasi Pengawas Sekolah (SIPS) memfasilitasi pendataan kualitatif dan kuantitatif bagi pengawas binaan. Dengan pemetaan jenjang **Sekolah Dasar (SD)** dan **Sekolah Menengah Pertama (SMP)**, aplikasi ini merekam berbagai macam instrumen penting:</p>
-                      <ul className="list-disc pl-5 space-y-2">
-                        <li><strong>Kunjungan Sekolah Bulanan:</strong> Lembar pemantauan kehadiran serta checklist pembinaan bulanan dari bulan Januari sampai dengan Desember.</li>
-                        <li><strong>Profil & Detail Sarana Sekolah:</strong> Menyimpan lengkap Akreditasi, NPSN, Kontak Kepala Sekolah, data kesiswaan laki-laki dan perempuan per kelas (SD: Kelas I-VI, SMP: Kelas VII-IX), data rombel, serta detail status guru PNS/Non-ASN/Yayasan.</li>
-                        <li><strong>PKKS (Penilaian Kinerja Kepala Sekolah):</strong> Untuk menilai ketercapaian kepala sekolah dalam memimpin pembelajaran di satuan pendidikan.</li>
-                        <li><strong>Refleksi Sekolah:</strong> Catatan evaluasi mingguan/bulanan dari pertemuan komite pembelajaran bersama pengawas sekolah.</li>
-                      </ul>
-                      <p className="text-emerald-700 font-semibold bg-emerald-50 p-3 rounded-lg border border-emerald-100"><i className="fa-solid fa-lightbulb mr-1.5"></i> Informasi: Data Anda tersimpan secara lokal dan aman di browser komputer Anda. Jika Anda ingin memindahkan data, silakan klik tombol cetak laporan untuk membuat format PDF / lembar fisik.</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {}
-              {/* ==================================== */}
-              {/* 2. KONTEN TAB: KUNJUNGAN SEKOLAH */}
-              {/* ==================================== */}
-              {currentTab === "kunjungan" && (
-                <div className="bg-white rounded-xl shadow border border-slate-200 p-6">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 border-b border-slate-100 pb-4">
-                    <div>
-                      <h2 className="text-2xl font-bold text-slate-800 flex items-center">
-                        <i className="fa-solid fa-calendar-check text-emerald-600 mr-2"></i>
-                        Data Kunjungan Sekolah
-                      </h2>
-                      <p className="text-slate-500 text-sm mt-1">Daftar presensi, pengawasan, dan checklist pendampingan sekolah bulanan.</p>
-                    </div>
-                  </div>
-
-                  {/* Kolom Pencarian */}
-                  <div className="bg-slate-50 p-4 rounded-lg flex flex-wrap gap-4 mb-6">
-                    <div className="relative flex-1 min-w-[240px]">
-                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
-                        <i className="fa-solid fa-magnifying-glass"></i>
-                      </span>
-                      <input 
-                        type="text" 
-                        placeholder="Ketik nama sekolah yang dicari..." 
-                        className="border border-slate-300 rounded-lg pl-10 pr-4 py-2 text-sm w-full bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                      />
-                    </div>
-                    <button onClick={handleResetSearch} className="bg-slate-400 hover:bg-slate-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-all shadow-sm">Reset</button>
-                  </div>
-
-                  {/* Tabel Checklist Bulanan */}
-                  <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-left text-sm border-collapse min-w-[800px]">
-                      <thead>
-                        <tr className="bg-emerald-50 text-emerald-900 uppercase font-bold text-xs border-b border-emerald-200">
-                          <th className="py-3 px-4 w-12 text-center">No</th>
-                          <th className="py-3 px-4">Nama Sekolah</th>
-                          <th className="py-3 px-4 w-24 text-center">Jenjang</th>
-                          <th className="py-3 px-4 w-24 text-center">Status</th>
-                          {monthNames.map((m, i) => (
-                            <th key={i} className="py-3 px-1 text-center font-bold text-[11px] w-12">{m}</th>
-                          ))}
-                          <th className="py-3 px-4 text-center w-16 no-print">Aksi</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {visits
-                          .filter(v => v.namaSekolah.toLowerCase().includes(searchQuery.toLowerCase()))
-                          .map((v, index) => (
-                            <tr key={v.id} className="border-b border-slate-100 hover:bg-slate-50/60 transition-all">
-                              <td className="py-4 px-4 font-semibold text-slate-500 text-center">{index + 1}</td>
-                              <td className="py-4 px-4 font-bold text-slate-800 text-sm">{v.namaSekolah}</td>
-                              <td className="py-4 px-4 text-center">
-                                <span className={`px-2 py-0.5 rounded text-xs font-extrabold ${v.jenjang === "SD" ? "bg-blue-100 text-blue-700" : "bg-cyan-100 text-cyan-700"}`}>{v.jenjang}</span>
-                              </td>
-                              <td className="py-4 px-4 text-center">
-                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${v.status === "NEGERI" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>{v.status}</span>
-                              </td>
-                              {v.checklist.map((checked, mIdx) => (
-                                <td key={mIdx} className="py-4 px-1 text-center">
-                                  <input 
-                                    type="checkbox" 
-                                    checked={checked}
-                                    onChange={() => handleToggleChecklist(v.id, mIdx)}
-                                    className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500 cursor-pointer no-print"
-                                  />
-                                  {/* Simbol saat dicetak */}
-                                  <span className="hidden print:inline-block font-bold text-emerald-600 text-xs">
-                                    {checked ? "✓" : "-"}
-                                  </span>
-                                </td>
-                              ))}
-                              <td className="py-4 px-4 text-center no-print">
-                                <button onClick={() => handleDeleteData("visit", v.id)} className="bg-red-500 hover:bg-red-600 text-white p-1.5 rounded-lg transition-all" title="Hapus Kunjungan">
-                                  <i className="fa-solid fa-trash text-xs"></i>
-                                </button>
-                              </td>
-                            </tr>
-                        ))}
-                        {visits.filter(v => v.namaSekolah.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
-                          <tr>
-                            <td colSpan={17} className="py-8 text-center text-slate-400">Tidak ada data kunjungan sekolah ditemukan. Silakan tambahkan data sekolah terlebih dahulu.</td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {}
-              {/* ======================================================= */}
-              {/* 3 & 4. KONTEN TAB: DETAIL SEKOLAH (SD & SMP) */}
-              {/* ======================================================= */}
-              {(currentTab === "sd" || currentTab === "smp") && (
-                <div>
-                  <div className="bg-white rounded-xl shadow border border-slate-200 p-6 mb-6">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 border-b border-slate-100 pb-4">
-                      <div>
-                        <h2 className="text-2xl font-bold text-slate-800 flex items-center">
-                          <i className={`fa-solid mr-2.5 ${currentTab === "sd" ? "fa-school text-blue-600" : "fa-building-columns text-cyan-600"}`}></i>
-                          Data Jenjang {currentTab === "sd" ? "Sekolah Dasar (SD)" : "Sekolah Menengah Pertama (SMP)"}
-                        </h2>
-                        <p className="text-slate-500 text-sm mt-1">SIPS: Data Administrasi Profil, Kesiswaan, Rombongan Belajar, dan Tenaga Guru Pengajar.</p>
-                      </div>
-                      <button 
-                        onClick={() => handleOpenModal(currentTab === "sd" ? "sd_sekolah" : "smp_sekolah")}
-                        className={`font-semibold px-4 py-2.5 rounded-lg text-sm transition-all flex items-center space-x-2 shadow-sm no-print ${currentTab === "sd" ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-cyan-600 hover:bg-cyan-700 text-white"}`}
-                      >
-                        <i className="fa-solid fa-plus"></i>
-                        <span>Tambah Data {currentTab === "sd" ? "SD" : "SMP"}</span>
-                      </button>
-                    </div>
-
-                    {/* Sub Navigation Tabs Data Detail */}
-                    <div className="flex space-x-1 border-b border-slate-200 no-print">
-                      {["sekolah", "murid", "rombel", "guru"].map((sub) => (
-                        <button
-                          key={sub}
-                          onClick={() => currentTab === "sd" ? setSdTab(sub) : setSmpTab(sub)}
-                          className={`px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 transition-all ${
-                            (currentTab === "sd" ? sdTab : smpTab) === sub
-                              ? currentTab === "sd" ? "border-blue-600 text-blue-600 bg-blue-50/50" : "border-cyan-600 text-cyan-600 bg-cyan-50/50"
-                              : "border-transparent text-slate-500 hover:text-slate-800"
-                          }`}
-                        >
-                          Data {sub === "rombel" ? "Rombongan Belajar" : sub}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Filter Pencarian dan Reset */}
-                    <div className="mt-6 flex flex-wrap gap-4 p-4 bg-slate-50 rounded-lg no-print">
-                      <div className="relative flex-1 min-w-[240px]">
-                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
-                          <i className="fa-solid fa-magnifying-glass"></i>
-                        </span>
-                        <input 
-                          type="text" 
-                          placeholder="Cari nama sekolah..." 
-                          className="border border-slate-300 rounded-lg pl-10 pr-4 py-2 text-sm w-full bg-white focus:outline-none focus:ring-2 focus:ring-slate-400"
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                      </div>
-                      <button onClick={handleResetSearch} className="bg-slate-400 hover:bg-slate-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-all shadow-sm">Reset</button>
-                    </div>
-                  </div>
-
-                  {}
-                  {/* --- SUB TAB: DATA SEKOLAH --- */}
-                  {((currentTab === "sd" && sdTab === "sekolah") || (currentTab === "smp" && smpTab === "sekolah")) && (
-                    <div className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
-                      <div className="overflow-x-auto custom-scrollbar">
-                        <table className="w-full text-left text-sm border-collapse min-w-[900px]">
-                          <thead>
-                            <tr className="bg-emerald-50 text-emerald-900 font-bold text-xs uppercase border-b border-emerald-200">
-                              <th className="py-3.5 px-4 w-12 text-center">No</th>
-                              <th className="py-3.5 px-4">Nama Sekolah</th>
-                              <th className="py-3.5 px-4 w-24">Status</th>
-                              <th className="py-3.5 px-4">Alamat</th>
-                              <th className="py-3.5 px-4 w-24 text-center">Akreditasi</th>
-                              <th className="py-3.5 px-4 w-28 text-center">NPSN</th>
-                              <th className="py-3.5 px-4">Kepala Sekolah</th>
-                              <th className="py-3.5 px-4 w-32">No. HP</th>
-                              <th className="py-3.5 px-4">E-mail</th>
-                              <th className="py-3.5 px-4 text-center w-28 no-print">Aksi</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {(currentTab === "sd" ? sdSchools : smpSchools)
-                              .filter(s => s.nama.toLowerCase().includes(searchQuery.toLowerCase()))
-                              .map((s, index) => (
-                                <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50/60 transition-all">
-                                  <td className="py-4 px-4 font-semibold text-slate-500 text-center">{index + 1}</td>
-                                  <td className="py-4 px-4 font-bold text-slate-800 text-sm">{s.nama}</td>
-                                  <td className="py-4 px-4">
-                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${s.status === "NEGERI" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>{s.status}</span>
-                                  </td>
-                                  <td className="py-4 px-4 text-xs text-slate-600 max-w-xs truncate" title={s.alamat}>{s.alamat}</td>
-                                  <td className="py-4 px-4 text-center"><span className="bg-slate-100 border border-slate-300 text-slate-800 font-black text-[11px] px-2 py-0.5 rounded-full">{s.akreditasi}</span></td>
-                                  <td className="py-4 px-4 font-mono text-xs text-center">{s.npsn}</td>
-                                  <td className="py-4 px-4 font-semibold text-slate-700 text-xs">{s.kepsek}</td>
-                                  <td className="py-4 px-4 text-xs font-mono">{s.hpKepsek}</td>
-                                  <td className="py-4 px-4 text-xs underline text-blue-600 select-all">{s.email}</td>
-                                  <td className="py-4 px-4 text-center space-x-1.5 no-print">
-                                    <button onClick={() => handleOpenModal(currentTab === "sd" ? "sd_sekolah" : "smp_sekolah", s)} className="bg-amber-500 hover:bg-amber-600 text-white p-1.5 rounded-lg transition-all" title="Edit Data">
-                                      <i className="fa-solid fa-pen text-xs"></i>
-                                    </button>
-                                    <button onClick={() => handleDeleteData(currentTab, s.id)} className="bg-red-500 hover:bg-red-600 text-white p-1.5 rounded-lg transition-all" title="Hapus Data">
-                                      <i className="fa-solid fa-trash text-xs"></i>
-                                    </button>
-                                  </td>
-                                </tr>
-                            ))}
-                            {(currentTab === "sd" ? sdSchools : smpSchools).filter(s => s.nama.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
-                              <tr>
-                                <td colSpan={10} className="py-8 text-center text-slate-400">Tidak ada data sekolah binaan ditemukan.</td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-
-                  {}
-                  {/* --- SUB TAB: DATA MURID (CUSTOM PER TINGKATAN SD & SMP) --- */}
-                  {((currentTab === "sd" && sdTab === "murid") || (currentTab === "smp" && smpTab === "murid")) && (
-                    <div className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
-                      <div className="overflow-x-auto custom-scrollbar">
-                        <table className="w-full text-left text-sm border-collapse min-w-[950px]">
-                          <thead>
-                            <tr className="bg-emerald-50 text-emerald-950 font-bold text-xs uppercase border-b border-emerald-200">
-                              <th className="py-3 px-4 w-12 text-center" rowSpan={2}>No</th>
-                              <th className="py-3 px-4" rowSpan={2}>Nama Sekolah</th>
-                              {currentTab === "sd" ? (
-                                <React.Fragment>
-                                  {["I", "II", "III", "IV", "V", "VI"].map((kls) => (
-                                    <th key={kls} className="py-2 text-center border-l border-emerald-200/50" colSpan={2}>Kelas {kls}</th>
-                                  ))}
-                                </React.Fragment>
-                              ) : (
-                                <React.Fragment>
-                                  {["VII", "VIII", "IX"].map((kls) => (
-                                    <th key={kls} className="py-2 text-center border-l border-emerald-200/50" colSpan={2}>Kelas {kls}</th>
-                                  ))}
-                                </React.Fragment>
-                              )}
-                              <th className="py-3 px-4 text-center border-l border-emerald-200/50 w-28 bg-emerald-100" rowSpan={2}>Total Murid</th>
-                            </tr>
-                            <tr className="bg-emerald-50/60 text-emerald-900 text-[10px] font-bold uppercase border-b border-emerald-200">
-                              {Array(currentTab === "sd" ? 6 : 3).fill(null).map((_, idx) => (
-                                <React.Fragment key={idx}>
-                                  <th className="py-1.5 px-2 text-center border-l border-slate-200">L</th>
-                                  <th className="py-1.5 px-2 text-center">P</th>
-                                </React.Fragment>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {(currentTab === "sd" ? sdSchools : smpSchools)
-                              .filter(s => s.nama.toLowerCase().includes(searchQuery.toLowerCase()))
-                              .map((s, index) => {
-                                let totalMurid = 0;
-                                if (currentTab === "sd") {
-                                  totalMurid = s.murid.L1 + s.murid.P1 + s.murid.L2 + s.murid.P2 + s.murid.L3 + s.murid.P3 + s.murid.L4 + s.murid.P4 + s.murid.L5 + s.murid.P5 + s.murid.L6 + s.murid.P6;
-                                } else {
-                                  totalMurid = s.murid.L7 + s.murid.P7 + s.murid.L8 + s.murid.P8 + s.murid.L9 + s.murid.P9;
-                                }
-                                return (
-                                  <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50/60 transition-all text-xs">
-                                    <td className="py-4 px-4 font-semibold text-slate-500 text-center">{index + 1}</td>
-                                    <td className="py-4 px-4 font-bold text-slate-800 text-sm">{s.nama}</td>
-                                    
-                                    {/* Data Kelas SD (I-VI) */}
-                                    {currentTab === "sd" && (
-                                      <React.Fragment>
-                                        <td className="py-4 px-2 text-center border-l border-slate-100">{s.murid.L1}</td>
-                                        <td className="py-4 px-2 text-center">{s.murid.P1}</td>
-                                        <td className="py-4 px-2 text-center border-l border-slate-100">{s.murid.L2}</td>
-                                        <td className="py-4 px-2 text-center">{s.murid.P2}</td>
-                                        <td className="py-4 px-2 text-center border-l border-slate-100">{s.murid.L3}</td>
-                                        <td className="py-4 px-2 text-center">{s.murid.P3}</td>
-                                        <td className="py-4 px-2 text-center border-l border-slate-100">{s.murid.L4}</td>
-                                        <td className="py-4 px-2 text-center">{s.murid.P4}</td>
-                                        <td className="py-4 px-2 text-center border-l border-slate-100">{s.murid.L5}</td>
-                                        <td className="py-4 px-2 text-center">{s.murid.P5}</td>
-                                        <td className="py-4 px-2 text-center border-l border-slate-100">{s.murid.L6}</td>
-                                        <td className="py-4 px-2 text-center">{s.murid.P6}</td>
-                                      </React.Fragment>
-                                    )}
-
-                                    {/* Data Kelas SMP (VII-IX) */}
-                                    {currentTab === "smp" && (
-                                      <React.Fragment>
-                                        <td className="py-4 px-2 text-center border-l border-slate-100">{s.murid.L7}</td>
-                                        <td className="py-4 px-2 text-center">{s.murid.P7}</td>
-                                        <td className="py-4 px-2 text-center border-l border-slate-100">{s.murid.L8}</td>
-                                        <td className="py-4 px-2 text-center">{s.murid.P8}</td>
-                                        <td className="py-4 px-2 text-center border-l border-slate-100">{s.murid.L9}</td>
-                                        <td className="py-4 px-2 text-center">{s.murid.P9}</td>
-                                      </React.Fragment>
-                                    )}
-
-                                    <td className="py-4 px-4 font-extrabold text-center border-l border-emerald-200 bg-emerald-50 text-emerald-800 text-sm">{totalMurid}</td>
-                                  </tr>
-                                );
-                              })}
-                            {(currentTab === "sd" ? sdSchools : smpSchools).filter(s => s.nama.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
-                              <tr>
-                                <td colSpan={currentTab === "sd" ? 15 : 9} className="py-8 text-center text-slate-400">Tidak ada data murid sekolah binaan ditemukan.</td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-
-                  {}
-                  {/* --- SUB TAB: DATA ROMBONGAN BELAJAR (ROMBEL) --- */}
-                  {((currentTab === "sd" && sdTab === "rombel") || (currentTab === "smp" && smpTab === "rombel")) && (
-                    <div className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
-                      <div className="overflow-x-auto custom-scrollbar">
-                        <table className="w-full text-left text-sm border-collapse min-w-[700px]">
-                          <thead>
-                            <tr className="bg-emerald-50 text-emerald-950 font-bold text-xs uppercase border-b border-emerald-200">
-                              <th className="py-3 px-4 w-12 text-center" rowSpan={2}>No</th>
-                              <th className="py-3 px-4" rowSpan={2}>Nama Sekolah</th>
-                              <th className="py-2 text-center border-l border-emerald-200/50" colSpan={currentTab === "sd" ? 6 : 3}>Jumlah Rombongan Belajar (Rombel)</th>
-                              <th className="py-3 px-4 text-center border-l border-emerald-200/50 w-32 bg-emerald-100" rowSpan={2}>Total Rombel</th>
-                            </tr>
-                            <tr className="bg-emerald-50/60 text-emerald-900 text-xs font-bold uppercase border-b border-emerald-200">
-                              {currentTab === "sd" ? (
-                                ["Kelas I", "Kelas II", "Kelas III", "Kelas IV", "Kelas V", "Kelas VI"].map((kls) => (
-                                  <th key={kls} className="py-2 px-2 text-center border-l border-slate-200">{kls}</th>
-                                ))
-                              ) : (
-                                ["Kelas VII", "Kelas VIII", "Kelas IX"].map((kls) => (
-                                  <th key={kls} className="py-2 px-2 text-center border-l border-slate-200">{kls}</th>
-                                ))
-                              )}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {(currentTab === "sd" ? sdSchools : smpSchools)
-                              .filter(s => s.nama.toLowerCase().includes(searchQuery.toLowerCase()))
-                              .map((s, index) => {
-                                const totalRombel = s.rombel.reduce((a, b) => a + b, 0);
-                                return (
-                                  <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50/60 transition-all">
-                                    <td className="py-4 px-4 font-semibold text-slate-500 text-center">{index + 1}</td>
-                                    <td className="py-4 px-4 font-bold text-slate-800 text-sm">{s.nama}</td>
-                                    {s.rombel.map((val, idx) => (
-                                      <td key={idx} className="py-4 px-2 text-center border-l border-slate-100 text-slate-600">{val}</td>
-                                    ))}
-                                    <td className="py-4 px-4 font-black text-center border-l border-emerald-200 bg-emerald-50 text-emerald-800 text-sm">{totalRombel}</td>
-                                  </tr>
-                                );
-                              })}
-                            {(currentTab === "sd" ? sdSchools : smpSchools).filter(s => s.nama.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
-                              <tr>
-                                <td colSpan={currentTab === "sd" ? 9 : 6} className="py-8 text-center text-slate-400">Tidak ada data rombongan belajar binaan ditemukan.</td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-
-                  {}
-                  {/* --- SUB TAB: DATA GURU & TENDIK --- */}
-                  {((currentTab === "sd" && sdTab === "guru") || (currentTab === "smp" && smpTab === "guru")) && (
-                    <div className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
-                      <div className="overflow-x-auto custom-scrollbar">
-                        <table className="w-full text-left text-sm border-collapse min-w-[850px]">
-                          <thead>
-                            <tr className="bg-emerald-50 text-emerald-950 font-bold text-xs uppercase border-b border-emerald-200">
-                              <th className="py-3 px-4 w-12 text-center" rowSpan={2}>No</th>
-                              <th className="py-3 px-4" rowSpan={2}>Nama Sekolah</th>
-                              <th className="py-2 text-center border-l border-emerald-200/50" colSpan={3}>Status Kepegawaian Guru</th>
-                              <th className="py-3 px-4 text-center border-l border-emerald-200/50 w-28 bg-emerald-100" rowSpan={2}>Total Guru</th>
-                              <th className="py-3 px-4 text-center border-l border-emerald-200/50 w-32 bg-amber-50 text-amber-950" rowSpan={2}>Tendik</th>
-                              <th className="py-3 px-4 text-center border-l border-emerald-200/50 w-32 bg-blue-50 text-blue-950" rowSpan={2}>Kepala Sekolah</th>
-                            </tr>
-                            <tr className="bg-emerald-50/60 text-emerald-900 text-xs font-bold uppercase border-b border-emerald-200">
-                              <th className="py-2 px-2 text-center border-l border-slate-200">PNS / P3K</th>
-                              <th className="py-2 px-2 text-center border-l border-slate-200">Non-ASN</th>
-                              <th className="py-2 px-2 text-center border-l border-slate-200">Yayasan</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {(currentTab === "sd" ? sdSchools : smpSchools)
-                              .filter(s => s.nama.toLowerCase().includes(searchQuery.toLowerCase()))
-                              .map((s, index) => {
-                                const totalGuru = s.guru.pns + s.guru.nonAsn + s.guru.yayasan;
-                                return (
-                                  <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50/60 transition-all">
-                                    <td className="py-4 px-4 font-semibold text-slate-500 text-center">{index + 1}</td>
-                                    <td className="py-4 px-4 font-bold text-slate-800 text-sm">{s.nama}</td>
-                                    <td className="py-4 px-2 text-center border-l border-slate-100 text-slate-600">{s.guru.pns}</td>
-                                    <td className="py-4 px-2 text-center border-l border-slate-100 text-slate-600">{s.guru.nonAsn}</td>
-                                    <td className="py-4 px-2 text-center border-l border-slate-100 text-slate-600">{s.guru.yayasan}</td>
-                                    <td className="py-4 px-4 font-black text-center border-l border-emerald-200 bg-emerald-50 text-emerald-800 text-sm">{totalGuru}</td>
-                                    <td className="py-4 px-4 font-semibold text-center border-l border-amber-200 bg-amber-50/30 text-amber-700 text-sm">{s.guru.tendik}</td>
-                                    <td className="py-4 px-4 font-semibold text-center border-l border-blue-200 bg-blue-50/30 text-blue-700 text-sm">{s.guru.kepsek}</td>
-                                  </tr>
-                                );
-                              })}
-                            {(currentTab === "sd" ? sdSchools : smpSchools).filter(s => s.nama.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
-                              <tr>
-                                <td colSpan={8} className="py-8 text-center text-slate-400">Tidak ada data tenaga pengajar binaan ditemukan.</td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {}
-              {/* ==================================== */}
-              {/* 5. KONTEN TAB: PKKS */}
-              {/* ==================================== */}
-              {currentTab === "pkks" && (
-                <div className="bg-white rounded-xl shadow border border-slate-200 p-6">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 border-b border-slate-100 pb-4">
-                    <div>
-                      <h2 className="text-2xl font-bold text-slate-800 flex items-center">
-                        <i className="fa-solid fa-id-card-clip text-emerald-600 mr-2"></i>
-                        PKKS (Penilaian Kinerja Kepala Sekolah)
-                      </h2>
-                      <p className="text-slate-500 text-sm mt-1">SIPS: Lembar monitoring indikator kelulusan, hasil penilaian, observasi kualitatif, dan rekap rekomendasi.</p>
-                    </div>
-                    <button 
-                      onClick={() => handleOpenModal("pkks")}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2.5 rounded-lg text-sm transition-all flex items-center space-x-2 shadow-sm no-print"
-                    >
-                      <i className="fa-solid fa-plus"></i>
-                      <span>Tambah Data PKKS</span>
-                    </button>
-                  </div>
-
-                  {/* Filter Pencarian */}
-                  <div className="bg-slate-50 p-4 rounded-lg flex flex-wrap gap-4 mb-6 no-print">
-                    <div className="relative flex-1 min-w-[240px]">
-                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
-                        <i className="fa-solid fa-magnifying-glass"></i>
-                      </span>
-                      <input 
-                        type="text" 
-                        placeholder="Ketik nama sekolah..." 
-                        className="border border-slate-300 rounded-lg pl-10 pr-4 py-2 text-sm w-full bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                      />
-                    </div>
-                    <button onClick={handleResetSearch} className="bg-slate-400 hover:bg-slate-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-all shadow-sm">Reset</button>
-                  </div>
-
-                  {/* Tabel PKKS */}
-                  <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-left text-sm border-collapse min-w-[700px]">
-                      <thead>
-                        <tr className="bg-emerald-50 text-emerald-900 font-bold text-xs uppercase border-b border-emerald-200">
-                          <th className="py-3.5 px-4 w-12 text-center">No</th>
-                          <th className="py-3.5 px-4">Nama Sekolah</th>
-                          <th className="py-3.5 px-4 w-32 text-center">Indikator</th>
-                          <th className="py-3.5 px-4 w-32 text-center">Observasi</th>
-                          <th className="py-3.5 px-4">Keterangan Penilaian / Rekomendasi</th>
-                          <th className="py-3.5 px-4 text-center w-28 no-print">Aksi</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {pkks
-                          .filter(p => p.sekolah.toLowerCase().includes(searchQuery.toLowerCase()))
-                          .map((p, index) => (
-                            <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50/60 transition-all">
-                              <td className="py-4 px-4 font-semibold text-slate-500 text-center">{index + 1}</td>
-                              <td className="py-4 px-4 font-bold text-slate-800 text-sm">{p.sekolah}</td>
-                              <td className="py-4 px-4 text-center">
-                                <span className="bg-emerald-100 border border-emerald-200 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">{p.indikator}</span>
-                              </td>
-                              <td className="py-4 px-4 text-center font-black text-amber-600 text-lg">{p.observasi}</td>
-                              <td className="py-4 px-4 text-xs text-slate-600 max-w-sm" title={p.keterangan}>{p.keterangan}</td>
-                              <td className="py-4 px-4 text-center space-x-1.5 no-print">
-                                <button onClick={() => handleOpenModal("pkks", p)} className="bg-amber-500 hover:bg-amber-600 text-white p-1.5 rounded-lg transition-all" title="Edit PKKS">
-                                  <i className="fa-solid fa-pen text-xs"></i>
-                                </button>
-                                <button onClick={() => handleDeleteData("pkks", p.id)} className="bg-red-500 hover:bg-red-600 text-white p-1.5 rounded-lg transition-all" title="Hapus PKKS">
-                                  <i className="fa-solid fa-trash text-xs"></i>
-                                </button>
-                              </td>
-                            </tr>
-                        ))}
-                        {pkks.filter(p => p.sekolah.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
-                          <tr>
-                            <td colSpan={6} className="py-8 text-center text-slate-400">Tidak ada data hasil PKKS ditemukan.</td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {}
-              {/* ==================================== */}
-              {/* 6. KONTEN TAB: REFLEKSI SEKOLAH */}
-              {/* ==================================== */}
-              {currentTab === "refleksi" && (
-                <div className="bg-white rounded-xl shadow border border-slate-200 p-6">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 border-b border-slate-100 pb-4">
-                    <div>
-                      <h2 className="text-2xl font-bold text-slate-800 flex items-center">
-                        <i className="fa-regular fa-comments text-emerald-600 mr-2"></i>
-                        Data Refleksi Sekolah
-                      </h2>
-                      <p className="text-slate-500 text-sm mt-1">SIPS: Jurnal pendampingan mingguan/bulanan dari diskusi komite pembelajaran dan refleksi program.</p>
-                    </div>
-                    <button 
-                      onClick={() => handleOpenModal("refleksi")}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2.5 rounded-lg text-sm transition-all flex items-center space-x-2 shadow-sm no-print"
-                    >
-                      <i className="fa-solid fa-plus"></i>
-                      <span>Tambah Jurnal Refleksi</span>
-                    </button>
-                  </div>
-
-                  {/* Filter Pencarian */}
-                  <div className="bg-slate-50 p-4 rounded-lg flex flex-wrap gap-4 mb-6 no-print">
-                    <div className="relative flex-1 min-w-[240px]">
-                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
-                        <i className="fa-solid fa-magnifying-glass"></i>
-                      </span>
-                      <input 
-                        type="text" 
-                        placeholder="Cari nama sekolah atau nomor pertemuan..." 
-                        className="border border-slate-300 rounded-lg pl-10 pr-4 py-2 text-sm w-full bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                      />
-                    </div>
-                    <button onClick={handleResetSearch} className="bg-slate-400 hover:bg-slate-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-all shadow-sm">Reset</button>
-                  </div>
-
-                  {/* Tabel Refleksi */}
-                  <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-left text-sm border-collapse min-w-[700px]">
-                      <thead>
-                        <tr className="bg-emerald-50 text-emerald-900 font-bold text-xs uppercase border-b border-emerald-200">
-                          <th className="py-3.5 px-4 w-12 text-center">No</th>
-                          <th className="py-3.5 px-4">Nama Sekolah</th>
-                          <th className="py-3.5 px-4 w-32 text-center">Pertemuan Ke</th>
-                          <th className="py-3.5 px-4 w-36">Tanggal Jurnal</th>
-                          <th className="py-3.5 px-4">Deskripsi Pembahasan / Rekomendasi</th>
-                          <th className="py-3.5 px-4 w-28 text-center">Status</th>
-                          <th className="py-3.5 px-4 text-center w-28 no-print">Aksi</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {reflections
-                          .filter(r => r.namaSekolah.toLowerCase().includes(searchQuery.toLowerCase()) || r.pertemuan.toString().includes(searchQuery))
-                          .map((r, index) => (
-                            <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50/60 transition-all">
-                              <td className="py-4 px-4 font-semibold text-slate-500 text-center">{index + 1}</td>
-                              <td className="py-4 px-4 font-bold text-slate-800 text-sm">{r.namaSekolah}</td>
-                              <td className="py-4 px-4 text-center">
-                                <span className="bg-cyan-100 text-cyan-800 font-black text-xs px-2.5 py-0.5 rounded">{r.pertemuan}</span>
-                              </td>
-                              <td className="py-4 px-4 font-mono text-xs text-slate-600">{r.tanggal}</td>
-                              <td className="py-4 px-4 text-xs text-slate-600 max-w-sm" title={r.deskripsi}>{r.deskripsi}</td>
-                              <td className="py-4 px-4 text-center">
-                                <span className="bg-emerald-500 text-white text-[9px] font-black tracking-wider px-2 py-0.5 rounded uppercase">{r.status}</span>
-                              </td>
-                              <td className="py-4 px-4 text-center space-x-1.5 no-print">
-                                <button onClick={() => handleOpenModal("refleksi", r)} className="bg-amber-500 hover:bg-amber-600 text-white p-1.5 rounded-lg transition-all" title="Edit Refleksi">
-                                  <i className="fa-solid fa-pen text-xs"></i>
-                                </button>
-                                <button onClick={() => handleDeleteData("refleksi", r.id)} className="bg-red-500 hover:bg-red-600 text-white p-1.5 rounded-lg transition-all" title="Hapus Refleksi">
-                                  <i className="fa-solid fa-trash text-xs"></i>
-                                </button>
-                              </td>
-                            </tr>
-                        ))}
-                        {reflections.filter(r => r.namaSekolah.toLowerCase().includes(searchQuery.toLowerCase()) || r.pertemuan.toString().includes(searchQuery)).length === 0 && (
-                          <tr>
-                            <td colSpan={7} className="py-8 text-center text-slate-400">Tidak ada jurnal refleksi sekolah ditemukan.</td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
+            <div className="flex gap-1">
+              <button 
+                onClick={() => loadTemplate('sd-ipas')}
+                className="text-[10px] font-bold px-2 py-1 bg-emerald-50 text-emerald-700 rounded-md border border-emerald-200 hover:bg-emerald-100 transition"
+              >
+                SD
+              </button>
+              <button 
+                onClick={() => loadTemplate('smp-matematika')}
+                className="text-[10px] font-bold px-2 py-1 bg-blue-50 text-blue-700 rounded-md border border-blue-200 hover:bg-blue-100 transition"
+              >
+                SMP
+              </button>
+              <button 
+                onClick={() => loadTemplate('sma-indonesia')}
+                className="text-[10px] font-bold px-2 py-1 bg-purple-50 text-purple-700 rounded-md border border-purple-200 hover:bg-purple-100 transition"
+              >
+                SMA
+              </button>
             </div>
-          </main>
+          </div>
 
-          {}
-          {/* ======================================================= */}
-          {/* DIALOG MODAL: DINAMIS FORM UNTUK SELURUH INPUT / EDIT */}
-          {/* ======================================================= */}
-          {isModalOpen && (
-            <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                
-                {/* Header Modal */}
-                <div className="bg-emerald-800 text-white px-6 py-4 flex justify-between items-center">
-                  <h3 className="font-bold text-lg flex items-center">
-                    <i className="fa-solid fa-file-signature mr-2.5"></i>
-                    {editData ? "Ubah Data" : "Tambah Data"} - {
-                      modalType === "sd_sekolah" ? "Sekolah Dasar (SD)" :
-                      modalType === "smp_sekolah" ? "Sekolah Menengah (SMP)" :
-                      modalType === "pkks" ? "Hasil Penilaian PKKS" : "Jurnal Refleksi Sekolah"
-                    }
+          <div className="p-5 flex-grow overflow-y-auto space-y-5 max-h-[70vh]">
+            
+            {/* Bagian 1: Informasi Umum */}
+            <div>
+              <h3 className="text-sm font-bold text-indigo-800 mb-3 flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs">1</span>
+                Informasi Umum
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Nama Guru Lengkap</label>
+                  <input 
+                    type="text" 
+                    name="namaGuru"
+                    value={formData.namaGuru} 
+                    onChange={handleInputChange}
+                    className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Nama beserta gelar akademik"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Nama Instansi Sekolah</label>
+                  <input 
+                    type="text" 
+                    name="instansiSekolah"
+                    value={formData.instansiSekolah} 
+                    onChange={handleInputChange}
+                    className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Nama Sekolah"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Mata Pelajaran</label>
+                  <input 
+                    type="text" 
+                    name="mapel"
+                    value={formData.mapel} 
+                    onChange={handleInputChange}
+                    className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Jenjang / Fase</label>
+                  <div className="grid grid-cols-2 gap-1">
+                    <select 
+                      name="jenjang"
+                      value={formData.jenjang}
+                      onChange={handleInputChange}
+                      className="text-sm px-2 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="SD">SD</option>
+                      <option value="SMP">SMP</option>
+                      <option value="SMA">SMA</option>
+                      <option value="SMK">SMK</option>
+                    </select>
+                    <select 
+                      name="fase"
+                      value={formData.fase}
+                      onChange={handleInputChange}
+                      className="text-sm px-2 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="A">A</option>
+                      <option value="B">B</option>
+                      <option value="C">C</option>
+                      <option value="D">D</option>
+                      <option value="E">E</option>
+                      <option value="F">F</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Materi Pokok / Tema</label>
+                  <input 
+                    type="text" 
+                    name="materiPokok"
+                    value={formData.materiPokok} 
+                    onChange={handleInputChange}
+                    className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Contoh: Keseimbangan Ekosistem"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Bagian 2: Capaian & Tujuan */}
+            <div className="pt-2">
+              <h3 className="text-sm font-bold text-indigo-800 mb-3 flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs">2</span>
+                Capaian & Tujuan Pembelajaran (CP & TP)
+              </h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Capaian Pembelajaran (CP)</label>
+                  <textarea 
+                    name="cp"
+                    rows="3"
+                    value={formData.cp} 
+                    onChange={handleInputChange}
+                    className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                    placeholder="Salin Capaian Pembelajaran resmi dari Kemdikbud"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Tujuan Pembelajaran (TP)</label>
+                  <textarea 
+                    name="tp"
+                    rows="3"
+                    value={formData.tp} 
+                    onChange={handleInputChange}
+                    className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                    placeholder="Tuliskan tujuan pembelajaran spesifik"
+                  />
+                </div>
+
+                {/* CP-TP Alignment Assistant Trigger */}
+                <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-orange-200 rounded-xl p-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-bold text-orange-950 flex items-center gap-1">
+                      <Sparkles className="h-4 w-4 text-orange-600 animate-pulse" /> Analisis Penyelarasan CP-TP
+                    </span>
+                    <button
+                      onClick={analyzeCPTPAlignment}
+                      disabled={isAnalyzingAlignment || !formData.cp || !formData.tp}
+                      className="text-xs bg-orange-600 hover:bg-orange-700 text-white font-bold py-1 px-2.5 rounded-lg transition shadow-sm flex items-center gap-1 disabled:bg-slate-300"
+                    >
+                      {isAnalyzingAlignment ? <RefreshCw className="h-3 w-3 animate-spin" /> : '⚡ Analisis'}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-orange-800">Evaluasi secara instan apakah CP dan TP Anda selaras dan mengandung pilar "Pembelajaran Mendalam" melalui Gemini AI.</p>
+
+                  {alignmentAnalysis && (
+                    <div className="mt-2.5 pt-2 border-t border-orange-200 text-[11px] text-slate-700 space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold text-slate-800">Status Kelayakan:</span>
+                        <span className={`px-2 py-0.5 rounded-full font-bold text-[9px] ${
+                          alignmentAnalysis.status === 'Sangat Selaras' ? 'bg-emerald-100 text-emerald-800' :
+                          alignmentAnalysis.status === 'Cukup Selaras' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
+                        }`}>{alignmentAnalysis.status} ({alignmentAnalysis.skor}/100)</span>
+                      </div>
+                      <p><strong className="text-slate-800">Analisis KKO:</strong> {alignmentAnalysis.analisisKognitif}</p>
+                      <p><strong className="text-slate-800">Aspek Deep Learning:</strong> {alignmentAnalysis.kesesuaianDeepLearning}</p>
+                      {alignmentAnalysis.rekomendasi && alignmentAnalysis.rekomendasi.length > 0 && (
+                        <div className="bg-white/80 p-2 rounded border border-orange-100 mt-1">
+                          <strong className="text-orange-950 block text-[10px]">Saran AI:</strong>
+                          <ul className="list-disc list-inside text-[10px] text-slate-600 mt-1 space-y-0.5">
+                            {alignmentAnalysis.rekomendasi.map((rec, i) => (
+                              <li key={i}>{rec}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Bagian 3: Dimensi Profil Lulusan */}
+            <div className="pt-2">
+              <h3 className="text-sm font-bold text-indigo-800 mb-2 flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs">3</span>
+                Dimensi Profil Lulusan (DPL) Prioritas
+              </h3>
+              <p className="text-[11px] text-slate-500 mb-3">Pilih minimal 2 dimensi yang ingin Anda bangun secara mendalam:</p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {Object.keys(dplMeta).map((key) => (
+                  <div 
+                    key={key} 
+                    onClick={() => toggleDPL(key)}
+                    className={`flex items-start p-2.5 rounded-xl border cursor-pointer transition select-none ${
+                      selectedDPL[key] 
+                        ? 'border-indigo-600 bg-indigo-50/50 text-indigo-900' 
+                        : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <div className="mt-0.5 mr-2">
+                      {selectedDPL[key] ? (
+                        <CheckSquare className="h-4.5 w-4.5 text-indigo-600 flex-shrink-0" />
+                      ) : (
+                        <Square className="h-4.5 w-4.5 text-slate-300 flex-shrink-0" />
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold">{dplMeta[key].label.split(':')[1]}</h4>
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-tight">{dplMeta[key].desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Bagian 4: Kerangka Pembelajaran Mendalam */}
+            <div className="pt-2">
+              <h3 className="text-sm font-bold text-indigo-800 mb-3 flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs">4</span>
+                Kerangka & Konteks Pembelajaran
+              </h3>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Model / Praktik Pedagogis</label>
+                    <select 
+                      name="modelPedagogis"
+                      value={formData.modelPedagogis}
+                      onChange={handleInputChange}
+                      className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="Problem-Based Learning (PBL)">Problem-Based Learning</option>
+                      <option value="Project-Based Learning (PjBL)">Project-Based Learning</option>
+                      <option value="Inquiry-Based Learning">Inquiry/Inkuiri Terbimbing</option>
+                      <option value="Discovery Learning">Discovery Learning</option>
+                      <option value="Contextual Teaching & Learning">Kontekstual (CTL)</option>
+                      <option value="Role Playing & Simulasi Sosial">Simulasi & Role Playing</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Durasi Pertemuan</label>
+                    <select 
+                      name="pertemuan"
+                      value={formData.pertemuan}
+                      onChange={handleInputChange}
+                      className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="1 Pertemuan (2 JP)">1 Pertemuan (2 JP)</option>
+                      <option value="2 Pertemuan (4 JP)">2 Pertemuan (4 JP)</option>
+                      <option value="3 Pertemuan (6 JP)">3 Pertemuan (6 JP)</option>
+                      <option value="4 Pertemuan (8 JP)">4 Pertemuan (8 JP)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Rencana Kemitraan Pembelajaran</label>
+                  <input 
+                    type="text" 
+                    name="partnerKerjasama"
+                    value={formData.partnerKerjasama} 
+                    onChange={handleInputChange}
+                    className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Contoh: Orang Tua, Ahli Lingkungan, Komunitas"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Lingkungan Belajar Terpadu</label>
+                  <input 
+                    type="text" 
+                    name="lingkunganBelajar"
+                    value={formData.lingkunganBelajar} 
+                    onChange={handleInputChange}
+                    className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Integrasi fisik dan LMS"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Pemanfaatan Teknologi Digital</label>
+                  <input 
+                    type="text" 
+                    name="pemanfaatanDigital"
+                    value={formData.pemanfaatanDigital} 
+                    onChange={handleInputChange}
+                    className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Contoh: Canva, Quizizz, Google Docs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Bagian 5: Upload Referensi Materi */}
+            <div className="pt-2">
+              <h3 className="text-sm font-bold text-indigo-800 mb-2 flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs">5</span>
+                Referensi Materi Tambahan
+              </h3>
+              <p className="text-[11px] text-slate-500 mb-2">Unggah draf silabus, materi, foto papan tulis, dokumen panduan, atau buku teks pendukung (semua jenis berkas didukung).</p>
+              
+              <div className="space-y-3">
+                <div className="border-2 border-dashed border-slate-200 hover:border-indigo-500 rounded-xl p-4 text-center cursor-pointer bg-slate-50/50 transition relative">
+                  <input 
+                    type="file" 
+                    accept=".txt,.md,.json,.pdf,.doc,.docx,.png,.jpg,.jpeg,image/*,application/pdf" 
+                    onChange={handleFileUpload}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  <Upload className="mx-auto h-7 w-7 text-indigo-500 mb-1.5" />
+                  <p className="text-xs font-bold text-slate-700">Pilih berkas dari komputer Anda</p>
+                  <p className="text-[10px] text-slate-400 mt-1">Mendukung PDF, Word (Doc/Docx), Gambar (Jpeg/Png), Teks (Txt/Md/Json)</p>
+                </div>
+
+                {attachedFile && (
+                  <div className="p-3 bg-indigo-50/70 rounded-xl border border-indigo-100 flex items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2.5 truncate max-w-[85%]">
+                      {attachedFile.previewUrl ? (
+                        <img 
+                          src={attachedFile.previewUrl} 
+                          alt="preview" 
+                          className="w-10 h-10 rounded object-cover border border-indigo-200 bg-white"
+                        />
+                      ) : (
+                        <div className="p-2 bg-indigo-100 text-indigo-700 rounded-lg flex-shrink-0">
+                          <FileText className="h-5 w-5" />
+                        </div>
+                      )}
+                      <div className="truncate">
+                        <p className="font-bold text-indigo-900 truncate">{attachedFile.name}</p>
+                        <p className="text-[10px] text-indigo-600 mt-0.5">{attachedFile.sizeKb} KB • {attachedFile.mimeType}</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={removeUploadedFile}
+                      className="p-1.5 hover:bg-indigo-100 rounded-full text-red-500 hover:text-red-700 transition"
+                      title="Hapus berkas"
+                    >
+                      <Trash2 className="h-4.5 w-4.5" />
+                    </button>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">Catatan Tambahan / Klip Teks Manual (Opsional):</label>
+                  <textarea 
+                    name="materiReferensi"
+                    rows="3"
+                    value={formData.materiReferensi} 
+                    onChange={handleInputChange}
+                    className="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none font-mono"
+                    placeholder="Tulis ringkasan manual atau catatan kurikulum di sini..."
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Opsi Grounding Google Search */}
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <input 
+                  type="checkbox" 
+                  id="googleSearch"
+                  checked={useGoogleSearch} 
+                  onChange={(e) => setUseGoogleSearch(e.target.checked)}
+                  className="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4"
+                />
+                <label htmlFor="googleSearch" className="text-xs font-semibold text-slate-700 flex items-center gap-1 select-none">
+                  <Search className="h-3.5 w-3.5 text-indigo-600" /> Grounding Kurikulum Merdeka Terbaru
+                </label>
+              </div>
+              <HelpCircle className="h-4 w-4 text-slate-400 hover:text-slate-600 cursor-pointer" title="AI akan melakukan pencarian web tambahan untuk referensi KD/CP dan instrumen asesmen yang sedang berlaku di Indonesia saat ini." />
+            </div>
+
+          </div>
+
+          <div className="p-4 border-t border-slate-100 bg-slate-50 flex flex-col space-y-2">
+            <button 
+              onClick={generateModulAjar}
+              disabled={isGenerating}
+              className={`w-full py-3 px-4 rounded-xl font-bold text-white shadow-lg flex items-center justify-center space-x-2 transition ${
+                isGenerating 
+                  ? 'bg-slate-400 cursor-not-allowed' 
+                  : 'bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98]'
+              }`}
+            >
+              {isGenerating ? (
+                <>
+                  <RefreshCw className="h-5 w-5 animate-spin" />
+                  <span>{generationProgress || 'Sedang Memproses...'}</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-5 w-5 text-indigo-200" />
+                  <span>Buat RPPM Pembelajaran Mendalam</span>
+                </>
+              )}
+            </button>
+            {apiError && (
+              <p className="text-xs font-medium text-red-600 text-center mt-1.5">{apiError}</p>
+            )}
+          </div>
+        </div>
+
+        {/* ================= COLUMN 2: RIGHT SIDE (EDITOR, PREVIEW & TOOLS) ================= */}
+        <div className={`lg:col-span-7 flex flex-col space-y-4 h-full ${activeTab === 'input' ? 'hidden lg:flex' : ''}`}>
+          
+          {/* Tab Menu & Actions */}
+          <div className="flex flex-wrap items-center justify-between bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200 gap-3">
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setActiveTab('preview-editor')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                  activeTab === 'preview-editor' 
+                    ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' 
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <Eye className="h-3.5 w-3.5" /> Editor RPPM / Modul
+              </button>
+              <button
+                onClick={() => setActiveTab('panduan')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                  activeTab === 'panduan' 
+                    ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' 
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <BookOpenText className="h-3.5 w-3.5" /> Panduan & Prinsip BBM
+              </button>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={printDocument}
+                disabled={!generatedDoc}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-1.5 transition disabled:opacity-50"
+              >
+                <Printer className="h-3.5 w-3.5" /> Cetak / PDF
+              </button>
+              <button
+                onClick={downloadAsDoc}
+                disabled={!generatedDoc}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5 shadow-sm transition disabled:opacity-50"
+              >
+                <Download className="h-3.5 w-3.5" /> Unduh MS Word (.doc)
+              </button>
+            </div>
+          </div>
+
+          {/* Tab 1: Live Interactive Editor + AI Assistant Panel */}
+          {activeTab === 'preview-editor' && (
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 flex-grow min-h-[60vh]">
+              
+              {/* Left Column: Editor Screen */}
+              <div className="md:col-span-8 bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col overflow-hidden max-h-[80vh]">
+                <div className="p-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
+                    <Info className="h-3 w-3 text-indigo-600" /> Klik di dalam dokumen untuk langsung mengedit teks.
+                  </span>
+                  <span className="text-[10px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-bold">Draf Siap Saji</span>
+                </div>
+
+                <div className="p-4 overflow-y-auto flex-grow bg-slate-100">
+                  <div 
+                    ref={editorRef}
+                    contentEditable
+                    suppressContentEditableWarning
+                    className="bg-white min-h-[70vh] p-6 md:p-10 rounded-lg shadow-sm focus:outline-none border border-slate-200"
+                    style={{ minWidth: '100%', wordBreak: 'break-word' }}
+                    dangerouslySetInnerHTML={{ __html: generatedDoc }}
+                  />
+                </div>
+              </div>
+
+              {/* Right Column: Deep Learning AI Assistant Toolbox */}
+              <div className="md:col-span-4 bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col justify-between max-h-[80vh] overflow-y-auto space-y-4">
+                <div>
+                  <h3 className="text-sm font-black text-indigo-900 border-b pb-2 flex items-center gap-1.5">
+                    <Sparkles className="h-4.5 w-4.5 text-indigo-600 animate-pulse" /> Asisten AI Mendalam
                   </h3>
-                  <button onClick={() => setIsModalOpen(false)} className="text-white hover:text-amber-300 transition-all text-xl">
-                    <i className="fa-solid fa-xmark"></i>
+                  <p className="text-[11px] text-slate-500 mt-1">Modifikasi dokumen atau buat materi pendukung langsung dari draf aktif.</p>
+                  
+                  {/* AI Quick Generators */}
+                  <div className="mt-4 space-y-2">
+                    <button
+                      onClick={() => handleAIAssistantCommand('lkpd')}
+                      disabled={isAiWorking || !generatedDoc}
+                      className="w-full text-left p-2.5 rounded-xl border border-slate-100 hover:border-indigo-300 hover:bg-indigo-50/30 transition flex items-center gap-2.5 disabled:opacity-50"
+                    >
+                      <div className="p-1.5 bg-indigo-50 text-indigo-700 rounded-lg">
+                        <FileSpreadsheet className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-800">Buat LKPD Otomatis</h4>
+                        <p className="text-[10px] text-slate-400">Sisipkan Lembar Kerja Aktivitas Siswa</p>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => handleAIAssistantCommand('rubrik')}
+                      disabled={isAiWorking || !generatedDoc}
+                      className="w-full text-left p-2.5 rounded-xl border border-slate-100 hover:border-emerald-300 hover:bg-emerald-50/30 transition flex items-center gap-2.5 disabled:opacity-50"
+                    >
+                      <div className="p-1.5 bg-emerald-50 text-emerald-700 rounded-lg">
+                        <ClipboardCheck className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-800">Buat Rubrik Penilaian</h4>
+                        <p className="text-[10px] text-slate-400">Susun rubrik tabel evaluasi detil</p>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => handleAIAssistantCommand('ice_breaking')}
+                      disabled={isAiWorking || !generatedDoc}
+                      className="w-full text-left p-2.5 rounded-xl border border-slate-100 hover:border-pink-300 hover:bg-pink-50/30 transition flex items-center gap-2.5 disabled:opacity-50"
+                    >
+                      <div className="p-1.5 bg-pink-50 text-pink-700 rounded-lg">
+                        <PlayCircle className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-800">Saran Game / Ice Breaking</h4>
+                        <p className="text-[10px] text-slate-400">Ide pencair suasana bernuansa BBM</p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* AI Custom Prompt Refiner */}
+                <div className="pt-3 border-t border-slate-100 space-y-2">
+                  <label className="block text-[11px] font-bold text-slate-700">✍️ Instruksi Khusus (Penyempurna Dokumen):</label>
+                  <textarea
+                    rows="3"
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    disabled={isAiWorking || !generatedDoc}
+                    placeholder="Contoh: Tambahkan alternatif kegiatan outdoor di bagian Langkah Mengaplikasi..."
+                    className="w-full text-xs p-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                  />
+                  
+                  {isAiWorking && (
+                    <div className="bg-slate-50 border border-indigo-100 rounded-lg p-2.5 flex items-center gap-2">
+                      <RefreshCw className="h-4 w-4 text-indigo-600 animate-spin flex-shrink-0" />
+                      <span className="text-[10px] font-semibold text-indigo-900">{aiStatus}</span>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => handleAIAssistantCommand('refine', aiPrompt)}
+                    disabled={isAiWorking || !aiPrompt.trim() || !generatedDoc}
+                    className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 shadow-sm disabled:bg-slate-300"
+                  >
+                    <Sparkle className="h-3.5 w-3.5" /> Sempurnakan Dokumen
                   </button>
                 </div>
 
-                {/* Form Isian Modal */}
-                <form onSubmit={handleSaveData} className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar text-sm">
-                  
-                  {/* --- A. FORM UNTUK DATA SEKOLAH (SD & SMP) --- */}
-                  {(modalType === "sd_sekolah" || modalType === "smp_sekolah") && (
-                    <div className="space-y-6">
-                      <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                        <h4 className="font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4 text-xs uppercase tracking-wider text-emerald-700">Profil & Lokasi Administrasi</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1">Nama Sekolah Binaan *</label>
-                            <input 
-                              type="text" required
-                              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                              placeholder="Contoh: SD Negeri 10 Palembang"
-                              value={formData.nama || ""}
-                              onChange={(e) => setFormData({ ...formData, nama: e.target.value })}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1">Status Satuan Pendidikan</label>
-                            <select 
-                              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                              value={formData.status || "NEGERI"}
-                              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                            >
-                              <option value="NEGERI">NEGERI</option>
-                              <option value="SWASTA">SWASTA</option>
-                            </select>
-                          </div>
-                          <div className="md:col-span-2">
-                            <label className="block text-xs font-bold text-slate-700 mb-1">Alamat Lengkap Sekolah</label>
-                            <input 
-                              type="text"
-                              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                              placeholder="Jalan, RT/RW, Kecamatan, Kota"
-                              value={formData.alamat || ""}
-                              onChange={(e) => setFormData({ ...formData, alamat: e.target.value })}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1">Akreditasi</label>
-                            <select 
-                              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                              value={formData.akreditasi || "A"}
-                              onChange={(e) => setFormData({ ...formData, akreditasi: e.target.value })}
-                            >
-                              <option value="A">A</option>
-                              <option value="B">B</option>
-                              <option value="C">C</option>
-                              <option value="Belum Akreditasi">Belum Akreditasi</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1">NPSN (Nomor Pokok Sekolah Nasional) *</label>
-                            <input 
-                              type="text" required maxLength="8"
-                              className="w-full border border-slate-300 rounded-lg px-3 py-2 font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                              placeholder="8 digit nomor"
-                              value={formData.npsn || ""}
-                              onChange={(e) => setFormData({ ...formData, npsn: e.target.value })}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1">Nama Kepala Sekolah</label>
-                            <input 
-                              type="text"
-                              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                              placeholder="Nama & Gelar Lengkap"
-                              value={formData.kepsek || ""}
-                              onChange={(e) => setFormData({ ...formData, kepsek: e.target.value })}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1">No. HP/WA Kepala Sekolah</label>
-                            <input 
-                              type="text"
-                              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                              placeholder="Contoh: 0812XXXXXXXX"
-                              value={formData.hpKepsek || ""}
-                              onChange={(e) => setFormData({ ...formData, hpKepsek: e.target.value })}
-                            />
-                          </div>
-                          <div className="md:col-span-2">
-                            <label className="block text-xs font-bold text-slate-700 mb-1">Alamat Email Sekolah</label>
-                            <input 
-                              type="email"
-                              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                              placeholder="sekolah@sch.id"
-                              value={formData.email || ""}
-                              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                            />
-                          </div>
-                        </div>
-                      </div>
+              </div>
+            </div>
+          )}
 
-                      {/* --- FORM SUB-KOMPONEN: DATA MURID --- */}
-                      <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                        <h4 className="font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4 text-xs uppercase tracking-wider text-blue-700">Jumlah Siswa Per Kelas</h4>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                          {modalType === "sd_sekolah" ? (
-                            <React.Fragment>
-                              {["1", "2", "3", "4", "5", "6"].map((kls) => (
-                                <React.Fragment key={kls}>
-                                  <div>
-                                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Kls {kls} (Laki-laki)</label>
-                                    <input 
-                                      type="number" min="0"
-                                      className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                                      value={formData.murid?.[`L${kls}`] || 0}
-                                      onChange={(e) => {
-                                        const val = parseInt(e.target.value) || 0;
-                                        setFormData({ ...formData, murid: { ...formData.murid, [`L${kls}`]: val } });
-                                      }}
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Kls {kls} (Perempuan)</label>
-                                    <input 
-                                      type="number" min="0"
-                                      className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                                      value={formData.murid?.[`P${kls}`] || 0}
-                                      onChange={(e) => {
-                                        const val = parseInt(e.target.value) || 0;
-                                        setFormData({ ...formData, murid: { ...formData.murid, [`P${kls}`]: val } });
-                                      }}
-                                    />
-                                  </div>
-                                </React.Fragment>
-                              ))}
-                            </React.Fragment>
-                          ) : (
-                            <React.Fragment>
-                              {["7", "8", "9"].map((kls) => (
-                                <React.Fragment key={kls}>
-                                  <div>
-                                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Kls {kls} (Laki-laki)</label>
-                                    <input 
-                                      type="number" min="0"
-                                      className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                                      value={formData.murid?.[`L${kls}`] || 0}
-                                      onChange={(e) => {
-                                        const val = parseInt(e.target.value) || 0;
-                                        setFormData({ ...formData, murid: { ...formData.murid, [`L${kls}`]: val } });
-                                      }}
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Kls {kls} (Perempuan)</label>
-                                    <input 
-                                      type="number" min="0"
-                                      className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                                      value={formData.murid?.[`P${kls}`] || 0}
-                                      onChange={(e) => {
-                                        const val = parseInt(e.target.value) || 0;
-                                        setFormData({ ...formData, murid: { ...formData.murid, [`P${kls}`]: val } });
-                                      }}
-                                    />
-                                  </div>
-                                </React.Fragment>
-                              ))}
-                            </React.Fragment>
-                          )}
-                        </div>
-                      </div>
+          {/* Tab 2: Panduan Pembelajaran Mendalam & BBM */}
+          {activeTab === 'panduan' && (
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6 overflow-y-auto flex-grow max-h-[80vh]">
+              <div>
+                <h2 className="text-xl font-black text-slate-900 border-b pb-2 mb-3">Apa itu "Pembelajaran Mendalam" (Deep Learning)?</h2>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Pembelajaran Mendalam bukan sekadar menghafal konten materi, melainkan proses mengidentifikasi esensi, mengaplikasikan pengetahuan, dan merenungkan maknanya agar melekat sepanjang hayat. Konsep ini menuntut keterpaduan 4 aspek utama:
+                </p>
+              </div>
 
-                      {/* --- FORM SUB-KOMPONEN: DATA ROMBEL --- */}
-                      <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                        <h4 className="font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4 text-xs uppercase tracking-wider text-cyan-700">Rombongan Belajar (Rombel)</h4>
-                        <div className="grid grid-cols-3 sm:grid-cols-6 gap-4">
-                          {modalType === "sd_sekolah" ? (
-                            ["I", "II", "III", "IV", "V", "VI"].map((kls, idx) => (
-                              <div key={idx}>
-                                <label className="block text-xs font-semibold text-slate-600 mb-1">Kls {kls}</label>
-                                <input 
-                                  type="number" min="0"
-                                  className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                                  value={formData.rombel?.[idx] || 0}
-                                  onChange={(e) => {
-                                    const val = parseInt(e.target.value) || 0;
-                                    const updatedRombel = [...(formData.rombel || [0,0,0,0,0,0])];
-                                    updatedRombel[idx] = val;
-                                    setFormData({ ...formData, rombel: updatedRombel });
-                                  }}
-                                />
-                              </div>
-                            ))
-                          ) : (
-                            ["VII", "VIII", "IX"].map((kls, idx) => (
-                              <div key={idx}>
-                                <label className="block text-xs font-semibold text-slate-600 mb-1">Kls {kls}</label>
-                                <input 
-                                  type="number" min="0"
-                                  className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                                  value={formData.rombel?.[idx] || 0}
-                                  onChange={(e) => {
-                                    const val = parseInt(e.target.value) || 0;
-                                    const updatedRombel = [...(formData.rombel || [0,0,0])];
-                                    updatedRombel[idx] = val;
-                                    setFormData({ ...formData, rombel: updatedRombel });
-                                  }}
-                                />
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100">
+                  <h3 className="font-bold text-indigo-900 mb-1 flex items-center gap-1.5">
+                    <Check className="h-4 w-4 text-indigo-600" /> 1. Identifikasi
+                  </h3>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Menganalisis kesiapan murid (pengetahuan awal, minat) dan mengaitkannya dengan struktur materi serta Dimensi Profil Lulusan yang disasar.
+                  </p>
+                </div>
 
-                      {/* --- FORM SUB-KOMPONEN: DATA KEPEGAWAIAN GURU --- */}
-                      <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                        <h4 className="font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4 text-xs uppercase tracking-wider text-amber-700">Profil Status Guru & Tenaga Kependidikan</h4>
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                          <div>
-                            <label className="block text-xs font-semibold text-slate-600 mb-1">PNS / P3K</label>
-                            <input 
-                              type="number" min="0"
-                              className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                              value={formData.guru?.pns || 0}
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value) || 0;
-                                setFormData({ ...formData, guru: { ...formData.guru, pns: val } });
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-semibold text-slate-600 mb-1">Non-ASN</label>
-                            <input 
-                              type="number" min="0"
-                              className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                              value={formData.guru?.nonAsn || 0}
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value) || 0;
-                                setFormData({ ...formData, guru: { ...formData.guru, nonAsn: val } });
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-semibold text-slate-600 mb-1">Yayasan</label>
-                            <input 
-                              type="number" min="0"
-                              className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                              value={formData.guru?.yayasan || 0}
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value) || 0;
-                                setFormData({ ...formData, guru: { ...formData.guru, yayasan: val } });
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-semibold text-slate-600 mb-1">Tendik (Staf/TU)</label>
-                            <input 
-                              type="number" min="0"
-                              className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                              value={formData.guru?.tendik || 0}
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value) || 0;
-                                setFormData({ ...formData, guru: { ...formData.guru, tendik: val } });
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-semibold text-slate-600 mb-1">Kepala Sekolah</label>
-                            <input 
-                              type="number" min="0" max="1"
-                              className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-100 font-bold"
-                              value={formData.guru?.kepsek || 1}
-                              disabled
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                <div className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100">
+                  <h3 className="font-bold text-indigo-900 mb-1 flex items-center gap-1.5">
+                    <Check className="h-4 w-4 text-indigo-600" /> 2. Desain Pembelajaran
+                  </h3>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Menentukan Capaian Pembelajaran, Lintas Disiplin Ilmu yang relevan, serta kerangka inovatif (pedagogis, kemitraan belajar, pemanfaatan digital).
+                  </p>
+                </div>
 
-                  {/* --- B. FORM UNTUK PKKS --- */}
-                  {modalType === "pkks" && (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Pilih Sekolah Binaan *</label>
-                        <select required
-                          className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                          value={formData.sekolah || ""}
-                          onChange={(e) => setFormData({ ...formData, sekolah: e.target.value })}
-                        >
-                          <option value="">-- Silakan Pilih Sekolah --</option>
-                          {allSchoolNames.map((s, idx) => (
-                            <option key={idx} value={s.nama}>{`[${s.tipe}] ${s.nama}`}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Indikator Kinerja</label>
-                        <select 
-                          className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                          value={formData.indikator || "Aktif"}
-                          onChange={(e) => setFormData({ ...formData, indikator: e.target.value })}
-                        >
-                          <option value="Aktif">Aktif</option>
-                          <option value="Sangat Aktif">Sangat Aktif</option>
-                          <option value="Dalam Pembinaan">Dalam Pembinaan</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Hasil Nilai Observasi Akhir (Huruf)</label>
-                        <select 
-                          className="w-full border border-slate-300 rounded-lg px-3 py-2 font-bold text-amber-600 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                          value={formData.observasi || "A"}
-                          onChange={(e) => setFormData({ ...formData, observasi: e.target.value })}
-                        >
-                          <option value="A">A (Sangat Baik)</option>
-                          <option value="B">B (Baik)</option>
-                          <option value="C">C (Cukup)</option>
-                          <option value="D">D (Kurang)</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Keterangan Evaluasi / Catatan Rekomendasi</label>
-                        <textarea 
-                          rows="4"
-                          className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                          placeholder="Tulis uraian catatan pengawasan di sini..."
-                          value={formData.keterangan || ""}
-                          onChange={(e) => setFormData({ ...formData, keterangan: e.target.value })}
-                        ></textarea>
-                      </div>
-                    </div>
-                  )}
+                <div className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100">
+                  <h3 className="font-bold text-indigo-900 mb-1 flex items-center gap-1.5">
+                    <Check className="h-4 w-4 text-indigo-600" /> 3. Pengalaman Belajar (BBM)
+                  </h3>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Merancang kegiatan Awal, Inti, dan Penutup berdasarkan 3 pilar: 
+                    <strong className="text-indigo-800"> Berkesadaran, Bermakna, dan Menggembirakan</strong>.
+                  </p>
+                </div>
 
-                  {/* --- C. FORM UNTUK REFLEKSI --- */}
-                  {modalType === "refleksi" && (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Pilih Sekolah Binaan *</label>
-                        <select required
-                          className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                          value={formData.namaSekolah || ""}
-                          onChange={(e) => setFormData({ ...formData, namaSekolah: e.target.value })}
-                        >
-                          <option value="">-- Silakan Pilih Sekolah --</option>
-                          {allSchoolNames.map((s, idx) => (
-                            <option key={idx} value={s.nama}>{`[${s.tipe}] ${s.nama}`}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">Pertemuan Ke (Angka) *</label>
-                          <input 
-                            type="number" required min="1"
-                            className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                            value={formData.pertemuan || 1}
-                            onChange={(e) => setFormData({ ...formData, pertemuan: parseInt(e.target.value) || 1 })}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">Tanggal Pertemuan *</label>
-                          <input 
-                            type="date" required
-                            className="w-full border border-slate-300 rounded-lg px-3 py-2 font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                            value={formData.tanggal || ""}
-                            onChange={(e) => setFormData({ ...formData, tanggal: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Status Refleksi</label>
-                        <select 
-                          className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                          value={formData.status || "Aktif"}
-                          onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                        >
-                          <option value="Aktif">Aktif</option>
-                          <option value="Selesai">Selesai</option>
-                          <option value="Tertunda">Tertunda</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Uraian / Deskripsi Hasil Pertemuan</label>
-                        <textarea 
-                          rows="4"
-                          className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                          placeholder="Tulis ringkasan hasil diskusi refleksi di sini..."
-                          value={formData.deskripsi || ""}
-                          onChange={(e) => setFormData({ ...formData, deskripsi: e.target.value })}
-                        ></textarea>
-                      </div>
-                    </div>
-                  )}
+                <div className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100">
+                  <h3 className="font-bold text-indigo-900 mb-1 flex items-center gap-1.5">
+                    <Check className="h-4 w-4 text-indigo-600" /> 4. Asesmen Komprehensif
+                  </h3>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Mengukur pencapaian siswa melalui 3 level: Asesmen di Awal (Diagnostic), Selama Proses (Formative), dan Akhir Pembelajaran (Summative).
+                  </p>
+                </div>
+              </div>
 
-                  {/* Tombol Aksi di Footer Modal */}
-                  <div className="bg-slate-50 -mx-6 -mb-6 p-4 mt-8 border-t border-slate-200 flex justify-end space-x-3">
-                    <button 
-                      type="button" 
-                      onClick={() => setIsModalOpen(false)}
-                      className="bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-semibold px-4 py-2 rounded-lg text-xs transition-all shadow-sm"
-                    >
-                      Batal
-                    </button>
-                    <button 
-                      type="submit"
-                      className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold px-5 py-2 rounded-lg text-xs transition-all shadow-md flex items-center space-x-1.5"
-                    >
-                      <i className="fa-solid fa-cloud-arrow-up"></i>
-                      <span>Simpan Perubahan</span>
-                    </button>
+              <div className="p-5 bg-gradient-to-r from-violet-50 to-indigo-50 rounded-2xl border border-indigo-100 space-y-3">
+                <h3 className="font-bold text-indigo-950 flex items-center gap-1.5">
+                  <Sparkles className="h-4.5 w-4.5 text-violet-600" /> Panduan Penerapan Aspek BBM (Awal, Inti, Penutup)
+                </h3>
+                
+                <div className="space-y-3.5 text-xs text-slate-700">
+                  <div className="border-l-4 border-emerald-500 pl-3">
+                    <span className="font-bold text-emerald-800 text-sm">BERKESADARAN (Mindful)</span>
+                    <p className="mt-1 leading-relaxed">Membimbing siswa hadir sepenuhnya di saat sekarang. Contohnya hening sejenak, mengamati alam secara rileks, dan menyadari emosi serta kondisi fisik sebelum mulai menyerap pelajaran.</p>
                   </div>
 
-                </form>
+                  <div className="border-l-4 border-indigo-500 pl-3">
+                    <span className="font-bold text-indigo-800 text-sm">BERMAKNA (Meaningful)</span>
+                    <p className="mt-1 leading-relaxed">Mengaitkan topik dengan realitas sosial anak, kearifan lokal, serta aksi nyata penyelamatan lingkungan. Siswa menyadari kegunaan dari ilmu pengetahuan yang sedang mereka pelajari dalam kehidupan nyata.</p>
+                  </div>
 
+                  <div className="border-l-4 border-pink-500 pl-3">
+                    <span className="font-bold text-pink-800 text-sm">MENGGEMBIRAKAN (Joyful)</span>
+                    <p className="mt-1 leading-relaxed">Membangun interaksi sosial, simulasi, permainan edukatif, atau bernyanyi bersama yang memicu hormon endorfin anak sehingga belajar dipandang sebagai hal yang membahagiakan, bukan tekanan.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5 mb-1.5">
+                  <Info className="h-4 w-4 text-slate-500" /> Tips Cetak PDF Sempurna:
+                </h4>
+                <ul className="list-disc list-inside text-xs text-slate-600 space-y-1">
+                  <li>Gunakan tombol <strong className="text-slate-800">Cetak / PDF</strong> di panel atas.</li>
+                  <li>Pada jendela cetak browser Anda, pastikan pilihan tujuan adalah <strong className="text-slate-800">Save as PDF (Simpan sebagai PDF)</strong>.</li>
+                  <li>Atur ukuran kertas ke <strong className="text-slate-800">A4</strong> dan centang opsi <strong className="text-slate-800">"Background Graphics" (Grafis Latar Belakang)</strong> agar tabel dan warna tema tercetak dengan indah.</li>
+                </ul>
               </div>
             </div>
           )}
 
         </div>
-      );
-    }
+      </main>
 
-    // Render Aplikasi React ke dalam DOM
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
-  </script>
-</body>
-</html>
+      {/* Footer Hak Cipta */}
+      <footer className="bg-slate-900 text-slate-400 py-6 px-6 mt-12 border-t border-slate-800 text-center">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs">
+          <div>
+            <p className="font-bold text-slate-300">Aplikasi Perencanaan Pembelajaran Mendalam Kurikulum Merdeka</p>
+            <p className="mt-1">Berbasis 4 pilar Identifikasi, Desain Pembelajaran, Pengalaman Belajar & Asesmen Komprehensif.</p>
+          </div>
+          <div className="text-slate-500 text-center md:text-right">
+            <p>Didesain khusus untuk tenaga pendidik inovatif di Indonesia.</p>
+            <p className="mt-1 font-semibold text-slate-400">Generate by ND PRO @2026, Hak Cipta Dilindungi.</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
